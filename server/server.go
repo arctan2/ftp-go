@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -31,7 +32,16 @@ func handleConn(conn net.Conn) {
 		gh := common.NewGobHandler(conn)
 		gh.Encode(fp)
 	case "ls":
-		files, err := ioutil.ReadDir("./")
+		gh := common.NewGobHandler(conn)
+
+		dirName, err := common.Decode[string](gh)
+
+		if err != nil {
+			fmt.Println(err.Error())
+			break
+		}
+
+		files, err := ioutil.ReadDir(dirName)
 		if err != nil {
 			return
 		}
@@ -40,7 +50,6 @@ func handleConn(conn net.Conn) {
 			fileStruc := common.FileStruct{Name: f.Name(), IsDir: f.IsDir(), Size: f.Size()}
 			fileList = append(fileList, fileStruc)
 		}
-		gh := common.NewGobHandler(conn)
 		gh.Encode(fileList)
 	case "get":
 		os.Mkdir("./tmp", os.ModePerm)
