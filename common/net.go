@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/gob"
+	"io"
 	"net"
 	"os"
 )
@@ -32,15 +33,20 @@ func GetTcpAddrStr(PORT string) string {
 	return GetIPv4Str() + ":" + PORT
 }
 
-func NewGobHandler(conn net.Conn) *GobHandler {
-	return &GobHandler{gob.NewEncoder(conn), gob.NewDecoder(conn)}
+func NewGobHandler(r io.Reader, w io.Writer) *GobHandler {
+	return &GobHandler{gob.NewEncoder(w), gob.NewDecoder(r)}
 }
 
 func (h *GobHandler) Encode(i interface{}) error {
 	return h.enc.Encode(i)
 }
 
+func (h *GobHandler) Decode(data interface{}) error {
+	return h.dec.Decode(data)
+}
+
 func Decode[T Schema](h *GobHandler) (T, error) {
 	var data T
-	return data, h.dec.Decode(&data)
+	err := h.Decode(&data)
+	return data, err
 }

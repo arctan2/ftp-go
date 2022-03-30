@@ -26,18 +26,18 @@ func sendFile(fileName string, conn net.Conn) {
 func handleConn(conn net.Conn) {
 	defer conn.Close()
 
-	switch cmd, _ := bufio.NewReader(conn).ReadString('\n'); strings.TrimSpace(cmd) {
+	reader := bufio.NewReader(conn)
+	gh := common.NewGobHandler(reader, conn)
+
+	switch cmd, _ := reader.ReadString('\n'); strings.TrimSpace(cmd) {
 	case "pwd":
 		fp, _ := filepath.Abs("./")
-		gh := common.NewGobHandler(conn)
-		gh.Encode(fp)
+		gh.Encode(common.DirName(filepath.ToSlash(fp)))
 	case "ls":
-		gh := common.NewGobHandler(conn)
-
 		dirName, err := common.Decode[string](gh)
 
 		if err != nil {
-			fmt.Println(err.Error())
+			fmt.Println("unable to get dirname: ", err.Error())
 			break
 		}
 

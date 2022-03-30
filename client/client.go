@@ -11,26 +11,27 @@ import (
 	"github.com/fatih/color"
 )
 
-func DialAndSendCmd(cmd string) (net.Conn, error) {
+func DialAndCmd(cmd string) (net.Conn, error) {
 	tcpAddr := common.GetTcpAddrStr("5000")
 	conn, err := net.Dial("tcp", tcpAddr)
 	if err != nil {
 		return nil, err
 	}
-	conn.Write([]byte(cmd))
+	conn.Write([]byte(cmd + "\n"))
 	return conn, err
 }
 
 func getWorkingDir() (string, error) {
-	conn, err := DialAndSendCmd("pwd\n")
+	conn, err := DialAndCmd("pwd")
+
 	if err != nil {
 		return "", err
 	}
 	defer conn.Close()
 
-	gh := common.NewGobHandler(conn)
-
+	gh := common.NewGobHandler(conn, conn)
 	d, err := common.Decode[common.DirName](gh)
+
 	if err != nil {
 		return "", err
 	}
@@ -38,14 +39,14 @@ func getWorkingDir() (string, error) {
 	return strings.TrimSpace(string(d)), err
 }
 
-func getCurDirFiles(curDir string) ([]common.FileStruct, error) {
-	conn, err := DialAndSendCmd("ls\n")
+func getCurDirFiles(curDir string) (f []common.FileStruct, e error) {
+	conn, err := DialAndCmd("ls")
 	if err != nil {
-		return nil, err
+		log.Fatal(err.Error())
 	}
 	defer conn.Close()
 
-	gh := common.NewGobHandler(conn)
+	gh := common.NewGobHandler(conn, conn)
 	if err := gh.Encode(curDir); err != nil {
 		return nil, err
 	}
@@ -73,6 +74,7 @@ func StartClient(PORT string) {
 		conn        net.Conn
 	)
 
+	DialAndCmd("hehe\n")
 	fmt.Println("connecting...")
 	fmt.Println("getting current working dir...")
 
@@ -127,7 +129,7 @@ func StartClient(PORT string) {
 			}
 			fmt.Printf("There is no directory named '%s'\n", dirName)
 		case "ls":
-			curFiles, err = getCurDirFiles(curDir)
+			curFiles, err := getCurDirFiles(curDir)
 			if err != nil {
 				fmt.Println(err.Error(), "\nunable to get files.")
 				break
