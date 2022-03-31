@@ -100,7 +100,6 @@ func StartClient(PORT string) {
 			log.Fatal(err.Error())
 		}
 
-	cmdSwh:
 		switch cmd := cmdArgs[0]; cmd {
 		case "quit", "exit", "logout":
 			os.Exit(0)
@@ -115,21 +114,30 @@ func StartClient(PORT string) {
 				fmt.Println("missing operand for command: cd")
 				break
 			}
-			dirName := cmdArgs[1]
-
-			for _, f := range curFiles {
-				if f.Name == dirName {
-					if !f.IsDir {
-						fmt.Printf("%s is not a directory.\n", dirName)
-						break
-					}
-					curDir += "/" + dirName
-					break cmdSwh
-				}
+			cdDirName := cmdArgs[1]
+			if cdDirName[0:2] == "./" {
+				cdDirName = cdDirName[2:len(curDir)]
 			}
-			fmt.Printf("There is no directory named '%s'\n", dirName)
+
+			cdDirName = "/" + cdDirName
+
+			conn, err := DialAndCmd("cd")
+			if err != nil {
+				fmt.Println(err.Error())
+				break
+			}
+			gh := common.NewGobHandler(conn, conn)
+
+			gh.Encode(curDir + cdDirName)
+
+			if exists, err := common.Decode[string](gh); err != nil {
+				fmt.Println(err.Error())
+			} else {
+				curDir = exists
+				getCurDirFiles(curDir)
+			}
 		case "ls":
-			curFiles, err := getCurDirFiles(curDir)
+			curFiles, err = getCurDirFiles(curDir)
 			if err != nil {
 				fmt.Println(err.Error(), "\nunable to get files.")
 				break

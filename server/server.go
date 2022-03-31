@@ -51,6 +51,28 @@ func handleConn(conn net.Conn) {
 			fileList = append(fileList, fileStruc)
 		}
 		gh.Encode(fileList)
+	case "cd":
+		cdToDir, err := common.Decode[string](gh)
+		if err != nil {
+			fmt.Println(err.Error())
+			break
+		}
+
+		if fStat, err := os.Stat(cdToDir); err != nil {
+			if os.IsNotExist(err) {
+				gh.Encode("The system cannot find the file specified.")
+			} else {
+				gh.Encode(err.Error())
+			}
+			break
+		} else {
+			if !fStat.IsDir() {
+				gh.Encode(cdToDir + " is not a directory.")
+				break
+			}
+		}
+		absPath, err := filepath.Abs(cdToDir)
+		gh.Encode(filepath.ToSlash(absPath))
 	case "get":
 		os.Mkdir("./tmp", os.ModePerm)
 		common.ZipSource("./files/test-dir", "./tmp/test-dir.zip")
