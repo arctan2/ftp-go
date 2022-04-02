@@ -3,7 +3,10 @@ package client
 import (
 	"fmt"
 	"ftp/common"
+	"io"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/fatih/color"
 )
@@ -72,13 +75,69 @@ func ls(curDir string) []common.FileStruct {
 	}
 
 	for _, f := range curFiles {
+		fName := f.Name
+		if strings.ContainsRune(fName, ' ') {
+			fName = "\"" + fName + "\""
+		}
 		if f.IsDir {
-			blue("%s  ", f.Name)
+			blue("%s  ", fName)
 		} else {
-			fmt.Printf("%s  ", f.Name)
+			fmt.Printf("%s  ", fName)
 		}
 	}
 
 	fmt.Println()
 	return curFiles
+}
+
+func get(curDir string, cmdArgs []string) {
+	if len(cmdArgs) == 1 {
+		fmt.Println("err: missing operand after get")
+		return
+	}
+
+	conn, err := DialAndCmd("get")
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	defer conn.Close()
+
+	gh := common.NewGobHandler(conn, conn)
+
+	if err := gh.Encode(curDir + "/" + cmdArgs[1]); err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	fileName, err := common.Decode[string](gh)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	os.MkdirAll("./.tmp-client", os.ModePerm)
+	file, err := os.Create("./.tmp-client/" + fileName)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	io.Copy(file, conn)
+	file.Close()
+
+	if _, err := os.Stat("./downloads"); err != nil {
+		err := os.Mkdir("./downloads", os.ModePerm)
+		if err != nil {
+			fmt.Println("couldn't create downloads folder.")
+			return
+		}
+	}
+
+	common.UnzipSource("./.tmp-client/"+fileName, "./downloads")
+	os.RemoveAll("./.tmp-client")
+	fmt.Printf("got file '%s' successfully\n", cmdArgs[1])
 }

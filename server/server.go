@@ -23,6 +23,11 @@ func sendFile(fileName string, conn net.Conn) {
 	io.Copy(conn, file)
 }
 
+func getFileName(fp string) string {
+	parts := strings.Split(fp, "/")
+	return parts[len(parts)-1]
+}
+
 func handleConn(conn net.Conn) {
 	defer conn.Close()
 
@@ -38,7 +43,7 @@ func handleConn(conn net.Conn) {
 
 		if err != nil {
 			fmt.Println("unable to get dirname: ", err.Error())
-			break
+			return
 		}
 
 		files, err := ioutil.ReadDir(dirName)
@@ -74,10 +79,28 @@ func handleConn(conn net.Conn) {
 		absPath, err := filepath.Abs(cdToDir)
 		gh.Encode(common.Res{Err: false, Data: filepath.ToSlash(absPath)})
 	case "get":
-		os.Mkdir("./tmp", os.ModePerm)
-		common.ZipSource("./files/test-dir", "./tmp/test-dir.zip")
-		sendFile("./tmp/test-dir.zip", conn)
-		os.RemoveAll("./tmp/")
+		filePath, err := common.Decode[string](gh)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
+		if fStat, err := os.Stat(filePath); err != nil {
+			break
+		} else {
+			fileName := getFileName(filePath)
+			zipPath := "./.tmp/" + fileName + ".zip"
+
+			if fStat.IsDir() {
+				os.Mkdir("./.tmp", os.ModePerm)
+				common.ZipSource(filePath, zipPath)
+				if err := gh.Encode(fileName + ".zip"); err != nil {
+					break
+				}
+				sendFile(zipPath, conn)
+				os.RemoveAll("./.tmp/")
+			}
+		}
 	}
 }
 

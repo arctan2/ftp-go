@@ -53,8 +53,6 @@ func StartClient(PORT string) {
 		downloadDir = "./downloads"
 	)
 
-	DialAndCmd("hehe\n")
-	fmt.Println("connecting...")
 	fmt.Println("getting current working dir...")
 
 	curDir, err := getWorkingDir()
@@ -86,6 +84,10 @@ func StartClient(PORT string) {
 			curDir = cd(cmdArgs, curDir)
 		case "ls":
 			ls(curDir)
+		case "get":
+			get(curDir, cmdArgs)
+		default:
+			fmt.Printf("unknown command '%s'\n", cmd)
 		}
 	}
 
