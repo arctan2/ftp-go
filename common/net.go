@@ -13,9 +13,17 @@ type GobHandler struct {
 }
 
 type DirName string
+type Res struct {
+	Err  bool
+	Data string
+}
 
 type Schema interface {
-	[]FileStruct | DirName | string | bool
+	[]FileStruct | DirName | string | bool | Res
+}
+
+func (r Res) Error() string {
+	return r.Data
 }
 
 func GetIPv4Str() string {

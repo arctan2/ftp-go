@@ -60,19 +60,19 @@ func handleConn(conn net.Conn) {
 
 		if fStat, err := os.Stat(cdToDir); err != nil {
 			if os.IsNotExist(err) {
-				gh.Encode("The system cannot find the file specified.")
+				gh.Encode(common.Res{Err: true, Data: "The system cannot find the file specified."})
 			} else {
-				gh.Encode(err.Error())
+				gh.Encode(common.Res{Err: true, Data: err.Error()})
 			}
 			break
 		} else {
 			if !fStat.IsDir() {
-				gh.Encode(cdToDir + " is not a directory.")
+				gh.Encode(common.Res{Err: true, Data: cdToDir + " is not a directory."})
 				break
 			}
 		}
 		absPath, err := filepath.Abs(cdToDir)
-		gh.Encode(filepath.ToSlash(absPath))
+		gh.Encode(common.Res{Err: false, Data: filepath.ToSlash(absPath)})
 	case "get":
 		os.Mkdir("./tmp", os.ModePerm)
 		common.ZipSource("./files/test-dir", "./tmp/test-dir.zip")
