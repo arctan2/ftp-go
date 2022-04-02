@@ -111,7 +111,14 @@ func get(curDir string, cmdArgs []string) {
 		return
 	}
 
-	fileName, err := common.Decode[string](gh)
+	isZipping, err := common.Decode[string](gh)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	fmt.Println(isZipping)
+
+	fileDetails, err := common.Decode[common.FileStruct](gh)
 
 	if err != nil {
 		fmt.Println(err.Error())
@@ -119,15 +126,42 @@ func get(curDir string, cmdArgs []string) {
 	}
 
 	os.MkdirAll("./.tmp-client", os.ModePerm)
-	file, err := os.Create("./.tmp-client/" + fileName)
+	file, err := os.Create("./.tmp-client/" + fileDetails.Name)
 
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 
-	io.Copy(file, conn)
-	file.Close()
+	defer func() {
+		file.Close()
+		os.RemoveAll("./.tmp-client")
+	}()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	buf := make([]byte, 0, 4096)
+	tmp := make([]byte, 256)
+	pb := newProgressBar(fileDetails.Size, 30, "█", "getting file: ")
+	for {
+		n, err := conn.Read(tmp)
+		if err != nil {
+			if err != io.EOF {
+				fmt.Println("read error:", err)
+			}
+			break
+		}
+
+		pb.update(int64(n))
+
+		buf = append(buf, tmp[:n]...)
+	}
+	fmt.Println()
+
+	file.Write(buf)
 
 	if _, err := os.Stat("./downloads"); err != nil {
 		err := os.Mkdir("./downloads", os.ModePerm)
@@ -137,7 +171,7 @@ func get(curDir string, cmdArgs []string) {
 		}
 	}
 
-	common.UnzipSource("./.tmp-client/"+fileName, "./downloads")
-	os.RemoveAll("./.tmp-client")
+	fmt.Println("extracting...")
+	common.UnzipSource("./.tmp-client/"+fileDetails.Name, "./downloads")
 	fmt.Printf("got file '%s' successfully\n", cmdArgs[1])
 }

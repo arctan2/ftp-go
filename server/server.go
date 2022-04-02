@@ -14,13 +14,13 @@ import (
 	"ftp/common"
 )
 
-func sendFile(fileName string, conn net.Conn) {
+func sendFile(fileName string, conn net.Conn) (int64, error) {
 	file, err := os.Open(strings.TrimSpace(fileName))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer file.Close()
-	io.Copy(conn, file)
+	return io.Copy(conn, file)
 }
 
 func getFileName(fp string) string {
@@ -93,10 +93,16 @@ func handleConn(conn net.Conn) {
 
 			if fStat.IsDir() {
 				os.Mkdir("./.tmp", os.ModePerm)
+				gh.Encode("zipping file...")
 				common.ZipSource(filePath, zipPath)
-				if err := gh.Encode(fileName + ".zip"); err != nil {
+				fStat, err := os.Stat(zipPath)
+
+				if err != nil {
 					break
 				}
+
+				gh.Encode(common.FileStruct{Name: fStat.Name(), IsDir: fStat.IsDir(), Size: fStat.Size()})
+
 				sendFile(zipPath, conn)
 				os.RemoveAll("./.tmp/")
 			}

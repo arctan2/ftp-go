@@ -12,14 +12,8 @@ type GobHandler struct {
 	dec *gob.Decoder
 }
 
-type DirName string
-type Res struct {
-	Err  bool
-	Data string
-}
-
 type Schema interface {
-	[]FileStruct | DirName | string | bool | Res
+	[]FileStruct | FileStruct | DirName | string | bool | Res
 }
 
 func (r Res) Error() string {

@@ -71,6 +71,10 @@ func StartClient(PORT string) {
 			log.Fatal(err.Error())
 		}
 
+		if len(cmdArgs) == 0 {
+			continue
+		}
+
 		switch cmd := cmdArgs[0]; cmd {
 		case "quit", "exit", "logout":
 			os.Exit(0)
@@ -90,22 +94,4 @@ func StartClient(PORT string) {
 			fmt.Printf("unknown command '%s'\n", cmd)
 		}
 	}
-
-	//if err != nil {
-	//log.Fatal(err.Error())
-	//}
-
-	//defer conn.Close()
-
-	//os.MkdirAll("./tmp-client", os.ModePerm)
-	//file, err := os.Create("./tmp-client/test-recevied.zip")
-	//if err != nil {
-	//log.Fatal(err.Error())
-	//}
-
-	//io.Copy(file, conn)
-	//file.Close()
-
-	//common.UnzipSource("./tmp-client/test-recevied.zip", "./test")
-	//os.RemoveAll("./tmp-client")
 }
