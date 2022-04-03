@@ -9,7 +9,21 @@ import (
 	"strings"
 )
 
-func ZipSource(source, target string) error {
+func DirSize(path string) (int64, error) {
+	var size int64
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return err
+	})
+	return size, err
+}
+
+func ZipSource(source, target string, gh *GobHandler) error {
 	zf, err := os.Create(target)
 	if err != nil {
 		return err
@@ -18,6 +32,11 @@ func ZipSource(source, target string) error {
 
 	writer := zip.NewWriter(zf)
 	defer writer.Close()
+
+	var totalSize, doneSize int64
+	if gh != nil {
+		totalSize, _ = DirSize(source)
+	}
 
 	return filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -51,7 +70,11 @@ func ZipSource(source, target string) error {
 		}
 		defer f.Close()
 
-		_, err = io.Copy(headerWriter, f)
+		n, err := io.Copy(headerWriter, f)
+		if gh != nil {
+			doneSize += n
+			go gh.Encode(ZipProgress{Max: totalSize, Current: doneSize, IsDone: totalSize == doneSize})
+		}
 		return err
 	})
 }

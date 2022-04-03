@@ -93,8 +93,8 @@ func handleConn(conn net.Conn) {
 
 			if fStat.IsDir() {
 				os.Mkdir("./.tmp", os.ModePerm)
-				gh.Encode("zipping file...")
-				common.ZipSource(filePath, zipPath)
+				gh.Encode("starting to zip the file...")
+				common.ZipSource(filePath, zipPath, gh)
 				fStat, err := os.Stat(zipPath)
 
 				if err != nil {

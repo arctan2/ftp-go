@@ -13,7 +13,7 @@ type GobHandler struct {
 }
 
 type Schema interface {
-	[]FileStruct | FileStruct | DirName | string | bool | Res
+	[]FileStruct | FileStruct | DirName | string | bool | Res | ZipProgress
 }
 
 func (r Res) Error() string {

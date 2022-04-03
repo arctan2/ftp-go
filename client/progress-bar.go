@@ -16,6 +16,12 @@ type progressBar struct {
 	placeholder  *string
 }
 
+func (pb *progressBar) updatePercent(percentDone int, filledLength int64) {
+	pb.curPercent = percentDone
+	pb.filledLength = filledLength
+	pb.print()
+}
+
 func (pb *progressBar) update(n int64) {
 	pb.current += n
 	pb.curPercent = int(math.Round(float64(100 * pb.current / pb.max)))

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"ftp/common"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -117,6 +118,26 @@ func get(curDir string, cmdArgs []string) {
 		return
 	}
 	fmt.Println(isZipping)
+
+	zipPb := newProgressBar(0, 30, "█", "zipping file: ")
+	for {
+		zp, err := common.Decode[common.ZipProgress](gh)
+		if err != nil {
+			break
+		}
+		if zp.Max > 0 {
+			zipPb.curPercent = int(math.Round(float64(100 * zp.Current / zp.Max)))
+			zipPb.filledLength = zipPb.length * zp.Current / zp.Max
+			zipPb.print()
+			if zp.IsDone {
+				zipPb.curPercent = 100
+				zipPb.filledLength = zipPb.length
+				zipPb.print()
+				break
+			}
+		}
+	}
+	fmt.Print("\n\n")
 
 	fileDetails, err := common.Decode[common.FileStruct](gh)
 

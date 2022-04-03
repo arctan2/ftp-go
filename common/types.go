@@ -12,3 +12,9 @@ type Res struct {
 	Err  bool
 	Data string
 }
+
+type ZipProgress struct {
+	Max     int64
+	Current int64
+	IsDone  bool
+}

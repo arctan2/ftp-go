@@ -87,6 +87,8 @@ func StartClient(PORT string) {
 		log.Fatal(err.Error(), "\nunable to get working directory from server. Closing...\n")
 	}
 
+	fmt.Println("fetching file names...")
+
 	curDirFiles, err = getCurDirFiles(curDir)
 	if err != nil {
 		log.Fatal(err.Error(), "\nunable to get directory files from server. Closing...\n")
@@ -96,6 +98,7 @@ func StartClient(PORT string) {
 
 	completer := readline.NewPrefixCompleter(
 		readline.PcItem("cd", readline.PcItemDynamic(curDirFiles.ListFunc())),
+		readline.PcItem("get", readline.PcItemDynamic(curDirFiles.ListFunc())),
 	)
 
 	rln, err := readline.NewEx(&readline.Config{
