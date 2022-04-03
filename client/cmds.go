@@ -49,19 +49,25 @@ func cd(cmdArgs []string, curDir string, dlr dialer) string {
 		cdDirName = cdDirName[1 : len(cdDirName)-1]
 	}
 
-	if filepath.IsAbs(cdDirName) {
-		gh.Encode(cdDirName)
+	if filepath.IsAbs(cdDirName) || cdDirName[0] == '/' {
+		if err := gh.Encode(cdDirName); err != nil {
+			return curDir
+		}
 	} else {
-		gh.Encode(curDir + "/" + cdDirName)
+		if err := gh.Encode(curDir + "/" + cdDirName); err != nil {
+			return curDir
+		}
 	}
 
 	exists, err := common.Decode[common.Res](gh)
 	if err != nil {
 		fmt.Println(err.Error())
+		return curDir
 	}
 
 	if exists.Err {
 		fmt.Println(exists.Error())
+		return curDir
 	}
 
 	return exists.Data

@@ -85,27 +85,26 @@ func handleConn(conn net.Conn) {
 			return
 		}
 
-		if fStat, err := os.Stat(filePath); err != nil {
+		if _, err := os.Stat(filePath); err != nil {
 			break
 		} else {
 			fileName := getFileName(filePath)
 			zipPath := "./.tmp/" + fileName + ".zip"
 
-			if fStat.IsDir() {
-				os.Mkdir("./.tmp", os.ModePerm)
-				gh.Encode("starting to zip the file...")
-				common.ZipSource(filePath, zipPath, gh)
-				fStat, err := os.Stat(zipPath)
+			os.Mkdir("./.tmp", os.ModePerm)
+			gh.Encode("zipping...")
+			common.ZipSource(filePath, zipPath, gh)
+			zfStat, err := os.Stat(zipPath)
 
-				if err != nil {
-					break
-				}
-
-				gh.Encode(common.FileStruct{Name: fStat.Name(), IsDir: fStat.IsDir(), Size: fStat.Size()})
-
-				sendFile(zipPath, conn)
-				os.RemoveAll("./.tmp/")
+			if err != nil {
+				fmt.Println(err.Error())
+				break
 			}
+
+			gh.Encode(common.FileStruct{Name: zfStat.Name(), IsDir: true, Size: zfStat.Size()})
+
+			sendFile(zipPath, conn)
+			os.RemoveAll("./.tmp/")
 		}
 	}
 }
