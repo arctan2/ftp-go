@@ -110,9 +110,7 @@ func handleConn(conn net.Conn) {
 	}
 }
 
-func StartServer(PORT string) {
-	tcpAddr := common.GetTcpAddrStr(PORT)
-
+func StartServer(tcpAddr string) {
 	ln, err := net.Listen("tcp", tcpAddr)
 	if err != nil {
 		log.Fatal(err.Error())

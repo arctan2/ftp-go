@@ -1,44 +1,70 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"os"
-
 	"ftp/client"
+	"ftp/common"
 	"ftp/server"
+	"os"
+	"strings"
 )
 
 func main() {
-	if len(os.Args) == 1 {
-		fmt.Println(`
-Please specify a flag:
---client | -c : run as client
---server | -s : run as server
---help   | -h : help
-		`)
-		os.Exit(1)
-	}
-	if len(os.Args) > 2 {
-		fmt.Println("Please specify only one flag.")
-		os.Exit(1)
+	var (
+		isServerMode bool
+		isClientMode bool
+
+		port string
+		ipv4 string
+		addr string
+	)
+
+	flag.BoolVar(&isServerMode, "s", false, "run as server")
+	flag.BoolVar(&isServerMode, "server", false, "run as server")
+
+	flag.BoolVar(&isClientMode, "c", false, "run as client")
+	flag.BoolVar(&isClientMode, "client", false, "run as client")
+
+	flag.StringVar(&port, "port", "5000", "port to run on")
+	flag.StringVar(&port, "p", "5000", "port to run on")
+
+	i4 := common.GetIPv4Str()
+	flag.StringVar(&ipv4, "ipv4", i4, "ipv4 address")
+	flag.StringVar(&ipv4, "i4", i4, "ipv4 address")
+
+	flag.StringVar(&addr, "addr", "", "server address")
+	flag.StringVar(&addr, "a", "", "server address")
+
+	flag.Usage = func() {
+		fmt.Fprint(os.Stderr, `
+-s, --server   run as server
+-c, --client   run as client
+
+-p, --port     port to run on
+-i4, --ipv4    ipv4 address  
+-a, --addr     server address
+`)
 	}
 
-	switch os.Args[1] {
-	case "--server", "-s":
-		server.StartServer("5000")
-	case "--client", "-c":
-		client.StartClient("5000")
-	case "--help", "-h":
-		fmt.Println(`
---client | -c : run as client
---server | -s : run as server
---help   | -h : help
-		`)
-		os.Exit(0)
-	default:
-		fmt.Printf(`Invalid flag "%s"
-	use -h for help.
-`, os.Args[1])
-		os.Exit(1)
+	flag.Parse()
+
+	if addr != "" {
+		addrParts := strings.Split(addr, ":")
+		if len(addrParts) != 2 {
+			fmt.Println("invalid address.")
+			os.Exit(1)
+		}
+		ipv4, port = addrParts[0], addrParts[1]
 	}
+
+	if isServerMode {
+		server.StartServer(ipv4 + ":" + port)
+		return
+	}
+	if isClientMode {
+		client.StartClient(ipv4, port)
+		return
+	}
+	fmt.Println("please specify -c or -s flags.")
 }

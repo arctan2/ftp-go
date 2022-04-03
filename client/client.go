@@ -5,7 +5,6 @@ import (
 	"ftp/common"
 	"io"
 	"log"
-	"net"
 	"os"
 	"strings"
 
@@ -13,6 +12,8 @@ import (
 )
 
 type dirFiles []common.FileStruct
+
+var tcpAddr string
 
 func (df dirFiles) nameSlice() (fileNames []string) {
 	for _, f := range df {
@@ -27,18 +28,8 @@ func (df *dirFiles) ListFunc() func(string) []string {
 	}
 }
 
-func DialAndCmd(cmd string) (net.Conn, error) {
-	tcpAddr := common.GetTcpAddrStr("5000")
-	conn, err := net.Dial("tcp", tcpAddr)
-	if err != nil {
-		return nil, err
-	}
-	conn.Write([]byte(cmd + "\n"))
-	return conn, err
-}
-
-func getWorkingDir() (string, error) {
-	conn, err := DialAndCmd("pwd")
+func getWorkingDir(dlr dialer) (string, error) {
+	conn, err := dlr.DialAndCmd("pwd")
 
 	if err != nil {
 		return "", err
@@ -73,23 +64,25 @@ func filterInput(r rune) (rune, bool) {
 	return r, true
 }
 
-func StartClient(PORT string) {
+func StartClient(ipv4, port string) {
 	var (
 		curDir      string
 		curDirFiles dirFiles
 		downloadDir = "./downloads"
+
+		dlr = dialer{addr: ipv4 + ":" + port, port: port, ipv4: ipv4}
 	)
 
 	fmt.Println("getting current working dir...")
 
-	curDir, err := getWorkingDir()
+	curDir, err := getWorkingDir(dlr)
 	if err != nil {
 		log.Fatal(err.Error(), "\nunable to get working directory from server. Closing...\n")
 	}
 
 	fmt.Println("fetching file names...")
 
-	curDirFiles, err = getCurDirFiles(curDir)
+	curDirFiles, err = getCurDirFiles(curDir, dlr)
 	if err != nil {
 		log.Fatal(err.Error(), "\nunable to get directory files from server. Closing...\n")
 	}
@@ -130,6 +123,10 @@ func StartClient(PORT string) {
 		cmdExpr = strings.TrimSpace(cmdExpr)
 		cmdArgs := deleteEmptyStr(strings.Split(cmdExpr, " "))
 
+		if len(cmdArgs) == 0 {
+			continue
+		}
+
 		switch cmd := cmdArgs[0]; cmd {
 		case "quit", "exit", "logout":
 			rln.Close()
@@ -141,20 +138,20 @@ func StartClient(PORT string) {
 		case "ddir":
 			fmt.Println(downloadDir)
 		case "cd":
-			curDir = cd(cmdArgs, curDir)
-			cf, err := getCurDirFiles(curDir)
+			curDir = cd(cmdArgs, curDir, dlr)
+			cf, err := getCurDirFiles(curDir, dlr)
 			if err != nil {
 				fmt.Println(err.Error())
 			} else {
 				curDirFiles = cf
 			}
 		case "ls":
-			cf := ls(curDir)
+			cf := ls(curDir, dlr)
 			if cf != nil {
 				curDirFiles = cf
 			}
 		case "get":
-			get(curDir, cmdArgs)
+			get(curDir, cmdArgs, dlr)
 		default:
 			fmt.Printf("unknown command '%s'\n", cmd)
 			func(i interface{}) {}(curDirFiles)

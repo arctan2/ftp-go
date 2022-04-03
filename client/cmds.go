@@ -14,8 +14,8 @@ import (
 
 var blue = color.New(color.FgBlue).PrintfFunc()
 
-func getCurDirFiles(curDir string) (f []common.FileStruct, e error) {
-	conn, err := DialAndCmd("ls")
+func getCurDirFiles(curDir string, dlr dialer) (f []common.FileStruct, e error) {
+	conn, err := dlr.DialAndCmd("ls")
 	if err != nil {
 		return nil, err
 	}
@@ -29,13 +29,13 @@ func getCurDirFiles(curDir string) (f []common.FileStruct, e error) {
 	return common.Decode[[]common.FileStruct](gh)
 }
 
-func cd(cmdArgs []string, curDir string) string {
+func cd(cmdArgs []string, curDir string, dlr dialer) string {
 	if len(cmdArgs) == 1 {
 		fmt.Println("err: missing operand after cd")
 		return curDir
 	}
 
-	conn, err := DialAndCmd("cd")
+	conn, err := dlr.DialAndCmd("cd")
 	if err != nil {
 		fmt.Println(err.Error())
 		return curDir
@@ -67,8 +67,8 @@ func cd(cmdArgs []string, curDir string) string {
 	return exists.Data
 }
 
-func ls(curDir string) []common.FileStruct {
-	curFiles, err := getCurDirFiles(curDir)
+func ls(curDir string, dlr dialer) []common.FileStruct {
+	curFiles, err := getCurDirFiles(curDir, dlr)
 
 	if err != nil {
 		fmt.Println(err.Error(), "\nunable to get files.")
@@ -91,13 +91,13 @@ func ls(curDir string) []common.FileStruct {
 	return curFiles
 }
 
-func get(curDir string, cmdArgs []string) {
+func get(curDir string, cmdArgs []string, dlr dialer) {
 	if len(cmdArgs) == 1 {
 		fmt.Println("err: missing operand after get")
 		return
 	}
 
-	conn, err := DialAndCmd("get")
+	conn, err := dlr.DialAndCmd("get")
 	if err != nil {
 		fmt.Println(err.Error())
 		return
