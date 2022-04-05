@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/chzyer/readline"
@@ -28,24 +29,6 @@ func (df *dirFiles) ListFunc() func(string) []string {
 	}
 }
 
-func getWorkingDir(dlr dialer) (string, error) {
-	conn, err := dlr.DialAndCmd("pwd")
-
-	if err != nil {
-		return "", err
-	}
-	defer conn.Close()
-
-	gh := common.NewGobHandler(conn, conn)
-	d, err := common.Decode[common.DirName](gh)
-
-	if err != nil {
-		return "", err
-	}
-
-	return strings.TrimSpace(string(d)), err
-}
-
 func deleteEmptyStr(s []string) []string {
 	var r []string
 	for _, str := range s {
@@ -65,33 +48,30 @@ func filterInput(r rune) (rune, bool) {
 }
 
 func StartClient(ipv4, port string) {
-	var (
-		curDir      string
-		curDirFiles dirFiles
-		downloadDir = "./downloads"
-
-		dlr = dialer{addr: ipv4 + ":" + port, port: port, ipv4: ipv4}
-	)
+	pwd, _ := os.Getwd()
+	rEnv := newRemoteEnv(filepath.ToSlash(pwd+"/downloads"), dialer{addr: ipv4 + ":" + port, port: port, ipv4: ipv4})
 
 	fmt.Println("getting current working dir...")
 
-	curDir, err := getWorkingDir(dlr)
+	err := rEnv.fetchCurDirFromServer()
 	if err != nil {
 		log.Fatal(err.Error(), "\nunable to get working directory from server. Closing...\n")
 	}
 
 	fmt.Println("fetching file names...")
 
-	curDirFiles, err = getCurDirFiles(curDir, dlr)
+	err = rEnv.fetchCurDirFilesFromServer()
 	if err != nil {
 		log.Fatal(err.Error(), "\nunable to get directory files from server. Closing...\n")
 	}
 
 	fmt.Println()
 
+	dirListFunc := rEnv.getCurDirFiles().ListFunc()
+
 	completer := readline.NewPrefixCompleter(
-		readline.PcItem("cd", readline.PcItemDynamic(curDirFiles.ListFunc())),
-		readline.PcItem("get", readline.PcItemDynamic(curDirFiles.ListFunc())),
+		readline.PcItem("cd", readline.PcItemDynamic(dirListFunc)),
+		readline.PcItem("get", readline.PcItemDynamic(dirListFunc)),
 	)
 
 	rln, err := readline.NewEx(&readline.Config{
@@ -134,27 +114,27 @@ func StartClient(ipv4, port string) {
 		case "clear":
 			common.ClearScreen()
 		case "pwd":
-			fmt.Println(curDir)
+			fmt.Println(rEnv.getCurDir())
 		case "ddir":
-			fmt.Println(downloadDir)
+			if err := rEnv.setDownloadDir(cmdArgs); err != nil {
+				fmt.Printf("%s\ncouldn't set download directory\n", err.Error())
+				break
+			}
+			fmt.Println(rEnv.getDownloadDir())
 		case "cd":
-			curDir = cd(cmdArgs, curDir, dlr)
-			cf, err := getCurDirFiles(curDir, dlr)
-			if err != nil {
+			if err := rEnv.cd(cmdArgs); err != nil {
 				fmt.Println(err.Error())
-			} else {
-				curDirFiles = cf
+				break
+			}
+			if err := rEnv.fetchCurDirFilesFromServer(); err != nil {
+				fmt.Println(err.Error())
 			}
 		case "ls":
-			cf := ls(curDir, dlr)
-			if cf != nil {
-				curDirFiles = cf
-			}
+			rEnv.ls()
 		case "get":
-			get(curDir, cmdArgs, dlr)
+			rEnv.get(cmdArgs)
 		default:
 			fmt.Printf("unknown command '%s'\n", cmd)
-			func(i interface{}) {}(curDirFiles)
 		}
 	}
 }
