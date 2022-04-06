@@ -9,72 +9,64 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/chzyer/readline"
 )
 
 type remoteEnvStruct struct {
 	envStruct
-	downloadDir string
-	dlr         dialer
+	dlr dialer
 }
 
 type remoteEnv interface {
 	env
 	cmds
 
-	getDownloadDir() string
-	setDownloadDir([]string) error
-
 	fetchCurDirFromServer() error
 	fetchCurDirFilesFromServer() error
 	dialer() *dialer
+	initRemote() error
 
-	get([]string)
+	get([]string, string)
 }
 
-func newRemoteEnv(downloadDir string, dlr dialer) remoteEnv {
-	var e remoteEnv = &remoteEnvStruct{dlr: dlr, downloadDir: downloadDir}
-	return e
+func newRemoteEnv(dlr dialer) remoteEnv {
+	curDirFiles := make(dirFiles, 0)
+	dirListFunc := curDirFiles.ListFunc()
+
+	completer := readline.NewPrefixCompleter(
+		readline.PcItem("cd", readline.PcItemDynamic(dirListFunc)),
+		readline.PcItem("get", readline.PcItemDynamic(dirListFunc)),
+	)
+
+	rln, _ := readline.NewEx(&readline.Config{
+		Prompt:              "> ",
+		AutoComplete:        completer,
+		InterruptPrompt:     "^C",
+		EOFPrompt:           "exit",
+		FuncFilterInputRune: filterInput,
+	})
+	var rEnv remoteEnv = &remoteEnvStruct{dlr: dlr, envStruct: envStruct{curDirFiles: curDirFiles, rln: rln}}
+	return rEnv
 }
 
 func (re *remoteEnvStruct) dialer() *dialer {
 	return &re.dlr
 }
 
-func (re *remoteEnvStruct) getDownloadDir() string {
-	return re.downloadDir
-}
+func (re *remoteEnvStruct) initRemote() error {
+	fmt.Println("getting current working dir...")
 
-func (re *remoteEnvStruct) setDownloadDir(cmdArgs []string) error {
-	if len(cmdArgs) > 1 && cmdArgs[1] != "" {
-		arg1 := cmdArgs[1]
-		switch arg1 {
-		case "-d", "--default":
-			abs, _ := filepath.Abs("./downloads")
-			re.downloadDir = filepath.ToSlash(abs)
-			return nil
-		case "-s", "--set":
-			re.downloadDir = re.curDir
-			return nil
-		}
-		if len(arg1) > 2 {
-			if arg1[0] == '"' {
-				arg1 = arg1[1:]
-			}
-			if arg1[len(arg1)-1] == '"' {
-				arg1 = arg1[0 : len(arg1)-1]
-			}
-		}
+	err := re.fetchCurDirFromServer()
+	if err != nil {
+		return errors.New(err.Error() + "\nunable to get working directory from server. Closing...\n")
+	}
 
-		if _, err := os.Stat(arg1); err != nil {
-			return err
-		} else {
-			ddir, err := filepath.Abs(arg1)
-			if err != nil {
-				fmt.Println(err.Error())
-				return err
-			}
-			re.downloadDir = filepath.ToSlash(ddir)
-		}
+	fmt.Println("fetching file names...")
+
+	err = re.fetchCurDirFilesFromServer()
+	if err != nil {
+		return errors.New(err.Error() + "\nunable to get directory files from server. Closing...\n")
 	}
 	return nil
 }
@@ -182,7 +174,7 @@ func (re *remoteEnvStruct) ls() error {
 	return nil
 }
 
-func (re *remoteEnvStruct) get(cmdArgs []string) {
+func (re *remoteEnvStruct) get(cmdArgs []string, dest string) {
 	if len(cmdArgs) == 1 {
 		fmt.Println("err: missing operand after get")
 		return
@@ -275,7 +267,7 @@ func (re *remoteEnvStruct) get(cmdArgs []string) {
 
 	file.Write(buf)
 
-	ddir := re.getDownloadDir()
+	ddir := dest
 	if _, err := os.Stat(ddir); err != nil {
 		err := os.Mkdir(ddir, os.ModePerm)
 		if err != nil {
