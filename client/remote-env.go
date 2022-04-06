@@ -12,13 +12,15 @@ import (
 )
 
 type remoteEnvStruct struct {
-	env
+	envStruct
 	downloadDir string
 	dlr         dialer
 }
 
 type remoteEnv interface {
-	localEnv
+	env
+	cmds
+
 	getDownloadDir() string
 	setDownloadDir([]string) error
 
@@ -26,9 +28,7 @@ type remoteEnv interface {
 	fetchCurDirFilesFromServer() error
 	dialer() *dialer
 
-	cd([]string) error
 	get([]string)
-	ls()
 }
 
 func newRemoteEnv(downloadDir string, dlr dialer) remoteEnv {
@@ -46,14 +46,29 @@ func (re *remoteEnvStruct) getDownloadDir() string {
 
 func (re *remoteEnvStruct) setDownloadDir(cmdArgs []string) error {
 	if len(cmdArgs) > 1 && cmdArgs[1] != "" {
-		if cmdArgs[1] == "--set" || cmdArgs[1] == "-s" {
+		arg1 := cmdArgs[1]
+		switch arg1 {
+		case "-d", "--default":
+			abs, _ := filepath.Abs("./downloads")
+			re.downloadDir = filepath.ToSlash(abs)
+			return nil
+		case "-s", "--set":
 			re.downloadDir = re.curDir
 			return nil
 		}
-		if _, err := os.Stat(cmdArgs[1]); err != nil {
+		if len(arg1) > 2 {
+			if arg1[0] == '"' {
+				arg1 = arg1[1:]
+			}
+			if arg1[len(arg1)-1] == '"' {
+				arg1 = arg1[0 : len(arg1)-1]
+			}
+		}
+
+		if _, err := os.Stat(arg1); err != nil {
 			return err
 		} else {
-			ddir, err := filepath.Abs(cmdArgs[1])
+			ddir, err := filepath.Abs(arg1)
 			if err != nil {
 				fmt.Println(err.Error())
 				return err
@@ -62,10 +77,6 @@ func (re *remoteEnvStruct) setDownloadDir(cmdArgs []string) error {
 		}
 	}
 	return nil
-}
-
-func (re *remoteEnvStruct) getCurDirFiles() *dirFiles {
-	return &re.curDirFiles
 }
 
 func (re *remoteEnvStruct) fetchCurDirFilesFromServer() error {
@@ -86,10 +97,6 @@ func (re *remoteEnvStruct) fetchCurDirFilesFromServer() error {
 	}
 	re.curDirFiles = dirFiles(files)
 	return nil
-}
-
-func (re *remoteEnvStruct) getCurDir() string {
-	return re.curDir
 }
 
 func (re *remoteEnvStruct) fetchCurDirFromServer() error {
@@ -152,12 +159,11 @@ func (re *remoteEnvStruct) cd(cmdArgs []string) error {
 	return nil
 }
 
-func (re *remoteEnvStruct) ls() {
+func (re *remoteEnvStruct) ls() error {
 	err := re.fetchCurDirFilesFromServer()
 
 	if err != nil {
-		fmt.Println(err.Error(), "\nunable to get files.")
-		return
+		return errors.New(err.Error() + "\nunable to get files.")
 	}
 
 	for _, f := range *re.getCurDirFiles() {
@@ -173,6 +179,7 @@ func (re *remoteEnvStruct) ls() {
 	}
 
 	fmt.Println()
+	return nil
 }
 
 func (re *remoteEnvStruct) get(cmdArgs []string) {

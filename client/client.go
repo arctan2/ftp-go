@@ -114,7 +114,7 @@ func StartClient(ipv4, port string) {
 		case "clear":
 			common.ClearScreen()
 		case "pwd":
-			fmt.Println(rEnv.getCurDir())
+			rEnv.pwd()
 		case "ddir":
 			if err := rEnv.setDownloadDir(cmdArgs); err != nil {
 				fmt.Printf("%s\ncouldn't set download directory\n", err.Error())
@@ -130,7 +130,10 @@ func StartClient(ipv4, port string) {
 				fmt.Println(err.Error())
 			}
 		case "ls":
-			rEnv.ls()
+			if err := rEnv.ls(); err != nil {
+				fmt.Println(err.Error())
+				break
+			}
 		case "get":
 			rEnv.get(cmdArgs)
 		default:
