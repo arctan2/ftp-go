@@ -14,25 +14,25 @@ import (
 )
 
 type remoteEnvStruct struct {
-	envStruct
-	dlr dialer
+	*envStruct
+	name string
+	dlr  dialer
 }
 
 type remoteEnv interface {
 	env
-	cmds
 
 	fetchCurDirFromServer() error
-	fetchCurDirFilesFromServer() error
 	dialer() *dialer
 	initRemote() error
+	getRemoteName() string
 
 	get([]string, string)
 }
 
-func newRemoteEnv(dlr dialer) remoteEnv {
-	curDirFiles := make(dirFiles, 0)
-	dirListFunc := curDirFiles.ListFunc()
+func newRemoteEnv(dlr dialer, remoteName string) remoteEnv {
+	es := &envStruct{curDirFiles: make(dirFiles, 0)}
+	dirListFunc := es.curDirFiles.ListFunc()
 
 	completer := readline.NewPrefixCompleter(
 		readline.PcItem("cd", readline.PcItemDynamic(dirListFunc)),
@@ -46,8 +46,13 @@ func newRemoteEnv(dlr dialer) remoteEnv {
 		EOFPrompt:           "exit",
 		FuncFilterInputRune: filterInput,
 	})
-	var rEnv remoteEnv = &remoteEnvStruct{dlr: dlr, envStruct: envStruct{curDirFiles: curDirFiles, rln: rln}}
+	es.rln = rln
+	var rEnv = &remoteEnvStruct{dlr: dlr, envStruct: es, name: remoteName}
 	return rEnv
+}
+
+func (re *remoteEnvStruct) getRemoteName() string {
+	return re.name
 }
 
 func (re *remoteEnvStruct) dialer() *dialer {
@@ -69,6 +74,10 @@ func (re *remoteEnvStruct) initRemote() error {
 		return errors.New(err.Error() + "\nunable to get directory files from server. Closing...\n")
 	}
 	return nil
+}
+
+func (re *remoteEnvStruct) refreshCurDirFiles() error {
+	return re.fetchCurDirFilesFromServer()
 }
 
 func (re *remoteEnvStruct) fetchCurDirFilesFromServer() error {

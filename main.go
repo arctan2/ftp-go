@@ -63,7 +63,7 @@ func main() {
 		return
 	}
 	if isClientMode {
-		client.StartClient(ipv4, port)
+		client.StartClient()
 		return
 	}
 	fmt.Println("please specify -c or -s flags.")

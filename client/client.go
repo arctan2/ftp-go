@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"ftp/common"
 	"io"
-	"os"
-	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/chzyer/readline"
@@ -22,73 +19,82 @@ func filterInput(r rune) (rune, bool) {
 	return r, true
 }
 
-func StartClient(ipv4, port string) {
-	pwd, _ := os.Getwd()
-	eh := newEnvHandler(newLocalEnv(filepath.ToSlash(pwd + "/downloads")))
-	eh.setCurrentEnvType(REMOTE)
-
-	for i := 0; i < 3; i++ {
-		eh.addRemoteEnv(newRemoteEnv(dialer{addr: ipv4 + ":" + port, port: port, ipv4: ipv4}))
-		eh.setCurRemoteIdx(i)
-		eh.currentRemote().initRemote()
+func handleCmd[T env](curEnv T, eh envHandler) bool {
+	cmdExpr, err := curEnv.curRln().Readline()
+	if err == readline.ErrInterrupt {
+		return true
+	} else if err == io.EOF {
+		return true
 	}
-	eh.setCurRemoteIdx(0)
-	curEnv := eh.currentRemote()
 
-	for {
-		cmdExpr, err := curEnv.curRln().Readline()
-		if err == readline.ErrInterrupt {
-			if len(cmdExpr) == 0 {
-				break
-			} else {
-				continue
-			}
-		} else if err == io.EOF {
+	cmdExpr = strings.TrimSpace(cmdExpr)
+	cmdArgs := deleteEmptyStr(strings.Split(cmdExpr, " "))
+
+	if len(cmdArgs) == 0 {
+		return false
+	}
+
+	switch cmd := cmdArgs[0]; cmd {
+	case "quit", "exit", "logout":
+		return true
+	case "clear":
+		common.ClearScreen()
+	case "pwd":
+		curEnv.pwd()
+	case "net":
+		if err := eh.handleCmd(cmdArgs); err != nil {
+			fmt.Println(err.Error())
+		}
+	case "cd":
+		if err := curEnv.cd(cmdArgs); err != nil {
+			fmt.Println(err.Error())
 			break
 		}
-
-		cmdExpr = strings.TrimSpace(cmdExpr)
-		cmdArgs := deleteEmptyStr(strings.Split(cmdExpr, " "))
-
-		if len(cmdArgs) == 0 {
-			continue
+		if err := curEnv.refreshCurDirFiles(); err != nil {
+			fmt.Println(err.Error())
 		}
+	case "ls":
+		if err := curEnv.ls(); err != nil {
+			fmt.Println(err.Error())
+			break
+		}
+	default:
+		if eh.currentEnvType() == REMOTE {
+			rEnv := eh.currentRemote()
+			switch cmd {
+			case "get":
+				rEnv.get(cmdArgs, eh.localEnv().getDownloadDir())
+				return false
+			}
+		} else {
+			lEnv := eh.localEnv()
+			switch cmd {
+			case "ddir":
+				if err := lEnv.setDownloadDir(cmdArgs); err != nil {
+					fmt.Printf("%s\ncouldn't set download directory\n", err.Error())
+					break
+				}
+				fmt.Println(lEnv.getDownloadDir())
+				return false
+			}
+		}
+		fmt.Printf("unknown command '%s'\n", cmd)
+	}
+	return false
+}
 
-		switch cmd := cmdArgs[0]; cmd {
-		case "quit", "exit", "logout":
-			curEnv.curRln().Close()
-			os.Exit(0)
-		case "clear":
-			common.ClearScreen()
-		case "pwd":
-			curEnv.pwd()
-		case "ddir":
-			//if err := curEnv.setDownloadDir(cmdArgs); err != nil {
-			//fmt.Printf("%s\ncouldn't set download directory\n", err.Error())
-			//break
-			//}
-			//fmt.Println(rEnv.getDownloadDir())
-		case "se":
-			i, _ := strconv.Atoi(cmdArgs[1])
-			eh.setCurRemoteIdx(i)
-			curEnv = eh.currentRemote()
-		case "cd":
-			if err := curEnv.cd(cmdArgs); err != nil {
-				fmt.Println(err.Error())
+func StartClient() {
+	eh := newEnvHandler()
+	defer eh.closeAllRemotesRlns()
+	for {
+		if eh.currentEnvType() == LOCAL {
+			if handleCmd(eh.localEnv(), eh) {
 				break
 			}
-			if err := curEnv.fetchCurDirFilesFromServer(); err != nil {
-				fmt.Println(err.Error())
-			}
-		case "ls":
-			if err := curEnv.ls(); err != nil {
-				fmt.Println(err.Error())
+		} else {
+			if handleCmd(eh.currentRemote(), eh) {
 				break
 			}
-		case "get":
-			curEnv.get(cmdArgs, eh.localEnv().getDownloadDir())
-		default:
-			fmt.Printf("unknown command '%s'\n", eh)
 		}
 	}
 }
