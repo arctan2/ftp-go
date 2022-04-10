@@ -1,9 +1,13 @@
 package client
 
 import (
+	"errors"
 	"fmt"
+	"ftp/common"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/chzyer/readline"
 )
@@ -19,8 +23,8 @@ type localEnv interface {
 	setDownloadDir([]string) error
 }
 
-func newLocalEnv(downloadDir string) localEnv {
-	es := &envStruct{curDirFiles: make(dirFiles, 0)}
+func newLocalEnv(downloadDir, curDir string) localEnv {
+	es := &envStruct{curDirFiles: make(dirFiles, 0), curDir: curDir}
 	dirListFunc := es.curDirFiles.ListFunc()
 
 	completer := readline.NewPrefixCompleter(
@@ -82,13 +86,66 @@ func (le *localEnvStruct) setDownloadDir(cmdArgs []string) error {
 }
 
 func (le *localEnvStruct) refreshCurDirFiles() error {
+	files, err := ioutil.ReadDir(le.curDir)
+	if err != nil {
+		return err
+	}
+	var fileList []common.FileStruct
+	for _, f := range files {
+		fileStruc := common.FileStruct{Name: f.Name(), IsDir: f.IsDir(), Size: f.Size()}
+		fileList = append(fileList, fileStruc)
+	}
+	le.setCurDirFiles(fileList)
 	return nil
 }
 
-func (le *localEnvStruct) cd([]string) error {
+func (le *localEnvStruct) cd(cmdArgs []string) error {
+	if len(cmdArgs) == 1 {
+		return errors.New("err: missing operand after cd")
+	}
+
+	cdDirNameArg := cmdArgs[1]
+	cdToDir := ""
+
+	if cdDirNameArg != "" && cdDirNameArg[0] == '"' && cdDirNameArg[len(cdDirNameArg)-1] == '"' {
+		cdDirNameArg = cdDirNameArg[1 : len(cdDirNameArg)-1]
+	}
+
+	if !filepath.IsAbs(cdDirNameArg) && cdDirNameArg[0] != '/' {
+		cdToDir = le.curDir + "/" + cdDirNameArg
+	}
+
+	if fStat, err := os.Stat(cdToDir); err != nil {
+		if os.IsNotExist(err) {
+			return errors.New("The system cannot find the file specified.")
+		} else {
+			return errors.New(err.Error())
+		}
+	} else {
+		if !fStat.IsDir() {
+			return errors.New(cdToDir + " is not a directory.")
+		}
+	}
+	absPath, err := filepath.Abs(cdToDir)
+	if err != nil {
+		return err
+	}
+	le.curDir = filepath.ToSlash(absPath)
+	le.refreshCurDirFiles()
 	return nil
 }
 
 func (le *localEnvStruct) ls() error {
+	for _, f := range le.curDirFiles {
+		fName := f.Name
+		if strings.ContainsRune(fName, ' ') {
+			fName = "\"" + fName + "\""
+		}
+		if f.IsDir {
+			blue("%s  ", fName)
+		} else {
+			fmt.Printf("%s  ", fName)
+		}
+	}
 	return nil
 }

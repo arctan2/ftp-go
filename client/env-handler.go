@@ -39,10 +39,11 @@ const (
 func newEnvHandler() envHandler {
 	pwd, _ := os.Getwd()
 	var eh envHandler = &envHandlerStruct{
-		lEnv:       newLocalEnv(filepath.ToSlash(pwd + "/downloads")),
+		lEnv:       newLocalEnv(filepath.ToSlash(pwd+"/downloads"), pwd),
 		remotes:    make(map[string]remoteEnv),
 		curEnvType: LOCAL,
 	}
+	eh.localEnv().refreshCurDirFiles()
 	return eh
 }
 

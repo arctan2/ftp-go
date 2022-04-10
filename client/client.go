@@ -77,7 +77,7 @@ func handleCmd[T env](curEnv T, eh envHandler) bool {
 			case "ddir":
 				if err := lEnv.setDownloadDir(cmdArgs); err != nil {
 					fmt.Printf("%s\ncouldn't set download directory\n", err.Error())
-					break
+					return false
 				}
 				fmt.Println(lEnv.getDownloadDir())
 				return false

@@ -172,7 +172,7 @@ func (re *remoteEnvStruct) ls() error {
 		return errors.New(err.Error() + "\nunable to get files.")
 	}
 
-	for _, f := range *re.getCurDirFiles() {
+	for _, f := range re.curDirFiles {
 		fName := f.Name
 		if strings.ContainsRune(fName, ' ') {
 			fName = "\"" + fName + "\""
@@ -194,7 +194,7 @@ func (re *remoteEnvStruct) get(cmdArgs []string, dest string) {
 		return
 	}
 
-	conn, err := re.dialer().DialAndCmd("get")
+	conn, err := re.dlr.DialAndCmd("get")
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -204,7 +204,7 @@ func (re *remoteEnvStruct) get(cmdArgs []string, dest string) {
 
 	gh := common.NewGobHandler(conn, conn)
 
-	if err := gh.Encode(re.getCurDir() + "/" + cmdArgs[1]); err != nil {
+	if err := gh.Encode(re.curDir + "/" + cmdArgs[1]); err != nil {
 		fmt.Println(err.Error())
 		return
 	}
