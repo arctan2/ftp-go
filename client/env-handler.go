@@ -86,20 +86,33 @@ func (eh *envHandlerStruct) setCurRemoteName(remoteName string) error {
 	return nil
 }
 
-func (eh *envHandlerStruct) isRemoteExist(addr, remoteName string) bool {
+func (eh *envHandlerStruct) isRemoteAddrExist(addr string) bool {
 	for _, r := range eh.remotes {
-		if r.getRemoteName() == remoteName || r.dialer().addr == addr {
-			return false
+		if r.dialer().addr == addr {
+			return true
 		}
 	}
 	return false
+}
+
+func (eh *envHandlerStruct) isRemoteNameExist(remoteName string) bool {
+	_, exist := eh.remotes[remoteName]
+	return exist
+}
+
+func errTooFewArgsFor(arg string, s ...string) error {
+	var concat string
+	if len(s) > 0 {
+		concat = s[0]
+	}
+	return errors.New("too few arguements for '" + arg + "'." + concat)
 }
 
 func (eh *envHandlerStruct) handleCmd(cmdArgs []string) error {
 	if len(cmdArgs) == 1 {
 		return errors.New(`net usage:
 add     add a new network
-remove  remove a network
+remove  remove network(s)
 ls      list all networks
 switch  switch network
 `)
@@ -110,7 +123,7 @@ switch  switch network
 	switch cmd {
 	case "add":
 		if len(cmdArgs) < 2 {
-			return errors.New(`too few arguements for 'add'.
+			return errTooFewArgsFor(cmd, `
 usage: net add <address> <remote-name>
 `)
 		} else if len(cmdArgs) > 2 {
@@ -131,16 +144,17 @@ usage: net add <address> <remote-name>
 			return errors.New("invalid port.")
 		}
 		remoteName := cmdArgs[1]
-		if eh.isRemoteExist(cmdArgs[0], remoteName) {
+		if eh.isRemoteNameExist(remoteName) || eh.isRemoteAddrExist(cmdArgs[0]) {
 			return errors.New("remote already exists.")
 		}
 		rEnv := newRemoteEnv(newDialer(cmdArgs[0]), remoteName)
 		eh.addRemoteEnv(remoteName, rEnv)
-		err = rEnv.initRemote()
-		if err == nil {
-			eh.handleCmd([]string{"net", "switch", remoteName})
+
+		if err = rEnv.initRemote(); err != nil {
+			return err
 		}
-		return err
+		eh.handleCmd([]string{"net", "switch", remoteName})
+		return nil
 	case "ls":
 		fmt.Print("Remotes ", len(eh.remotes), "\n\n")
 		for _, r := range eh.remotes {
@@ -149,16 +163,52 @@ usage: net add <address> <remote-name>
 		return nil
 	case "switch":
 		if len(cmdArgs) < 1 {
-			return errors.New("too few arguements for 'swtich'")
+			return errTooFewArgsFor(cmd)
 		}
 		envName := cmdArgs[0]
 		if envName == "local" {
 			eh.setCurrentEnvType(LOCAL)
 			return eh.setCurRemoteName("")
 		}
+		if err := eh.setCurRemoteName(envName); err != nil {
+			return err
+		}
 		eh.setCurrentEnvType(REMOTE)
-		return eh.setCurRemoteName(envName)
+		return nil
 	case "remove":
+		if len(cmdArgs) < 0 {
+			return errTooFewArgsFor(cmd)
+		}
+		for _, rn := range cmdArgs {
+			if eh.isRemoteNameExist(rn) {
+				if eh.curRemoteName == rn {
+					eh.curRemoteName = ""
+					eh.curEnvType = LOCAL
+				}
+				delete(eh.remotes, rn)
+			} else {
+				return errors.New("unable to find remote '" + rn + "'.")
+			}
+		}
+		return nil
+	case "rename":
+		if len(cmdArgs) != 2 {
+			return errors.New(`need exactly two arguements for 'remove'
+usage: net rename <remote-name> <new-name>
+`)
+		}
+		if !eh.isRemoteNameExist(cmdArgs[0]) {
+			return errors.New("there is no remote named '" + cmdArgs[0] + "'.")
+		}
+		if eh.isRemoteNameExist(cmdArgs[1]) {
+			return errors.New("remote already exists.")
+		}
+		eh.remotes[cmdArgs[1]] = eh.remotes[cmdArgs[0]]
+		eh.remotes[cmdArgs[1]].setRemoteName(cmdArgs[1])
+		delete(eh.remotes, cmdArgs[0])
+		if eh.curRemoteName == cmdArgs[0] {
+			eh.setCurRemoteName(cmdArgs[1])
+		}
 		return nil
 	}
 	return errors.New("command '" + cmd + "' not found.")

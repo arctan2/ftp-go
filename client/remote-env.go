@@ -25,7 +25,9 @@ type remoteEnv interface {
 	fetchCurDirFromServer() error
 	dialer() *dialer
 	initRemote() error
+
 	getRemoteName() string
+	setRemoteName(string)
 
 	get([]string, string)
 }
@@ -54,6 +56,9 @@ func newRemoteEnv(dlr dialer, remoteName string) remoteEnv {
 func (re *remoteEnvStruct) getRemoteName() string {
 	return re.name
 }
+func (re *remoteEnvStruct) setRemoteName(newName string) {
+	re.name = newName
+}
 
 func (re *remoteEnvStruct) dialer() *dialer {
 	return &re.dlr
@@ -64,14 +69,14 @@ func (re *remoteEnvStruct) initRemote() error {
 
 	err := re.fetchCurDirFromServer()
 	if err != nil {
-		return errors.New(err.Error() + "\nunable to get working directory from server. Closing...\n")
+		return errors.New(err.Error() + "\nunable to get working directory from server.\n")
 	}
 
 	fmt.Println("fetching file names...")
 
 	err = re.fetchCurDirFilesFromServer()
 	if err != nil {
-		return errors.New(err.Error() + "\nunable to get directory files from server. Closing...\n")
+		return errors.New(err.Error() + "\nunable to get directory files from server.\n")
 	}
 	return nil
 }

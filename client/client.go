@@ -20,6 +20,11 @@ func filterInput(r rune) (rune, bool) {
 }
 
 func handleCmd[T env](curEnv T, eh envHandler) bool {
+	if eh.currentEnvType() == LOCAL {
+		curEnv.curRln().SetPrompt("local> ")
+	} else {
+		curEnv.curRln().SetPrompt(eh.currentRemoteName() + "> ")
+	}
 	cmdExpr, err := curEnv.curRln().Readline()
 	if err == readline.ErrInterrupt {
 		return true
