@@ -109,7 +109,7 @@ func handleConn(conn net.Conn) {
 	}
 }
 
-func StartServer(tcpAddr string) {
+func StartTcpServer(tcpAddr string) {
 	ln, err := net.Listen("tcp", tcpAddr)
 	if err != nil {
 		log.Fatal(err.Error())

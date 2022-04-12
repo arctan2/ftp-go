@@ -1,0 +1,23 @@
+*, *::after, *::before{
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: monospace;
+}
+
+body {
+  background-color: rgb(21, 21, 21);
+  padding: 1rem;
+  position: relative;
+  color: white;
+}
+
+#cur-working-dir{
+  color: rgb(13, 255, 0);
+  margin-bottom: 1rem;
+}
+
+.dir-content{
+  display: flex;
+  flex-direction: column;
+}

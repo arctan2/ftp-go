@@ -6,19 +6,24 @@ import (
 	"ftp/client"
 	"ftp/common"
 	"ftp/server"
+	httpServer "ftp/server/http-server"
 	"os"
 	"strings"
 )
 
 func main() {
+	httpServer.StartHttpServer("5000")
 	var (
 		isServerMode bool
 		isClientMode bool
+		isHttpMode   bool
 
 		port string
 		ipv4 string
 		addr string
 	)
+
+	flag.BoolVar(&isHttpMode, "http", false, "run http server")
 
 	flag.BoolVar(&isServerMode, "s", false, "run as server")
 	flag.BoolVar(&isServerMode, "server", false, "run as server")
@@ -41,6 +46,8 @@ func main() {
 -s, --server   run as server
 -c, --client   run as client
 
+--http  run http server 
+
 -p, --port     port to run on
 -i4, --ipv4    ipv4 address  
 -a, --addr     server address
@@ -58,8 +65,11 @@ func main() {
 		ipv4, port = addrParts[0], addrParts[1]
 	}
 
+	if isHttpMode {
+		return
+	}
 	if isServerMode {
-		server.StartServer(ipv4 + ":" + port)
+		server.StartTcpServer(ipv4 + ":" + port)
 		return
 	}
 	if isClientMode {
