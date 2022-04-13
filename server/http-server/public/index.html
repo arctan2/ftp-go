@@ -14,7 +14,8 @@
       <div @click="cd('..')">{{"<-"}}</div>
       <div id="cur-working-dir" style="display: inline-block;">{{curDir}}</div>
     </div>
-    <div class="dir-files">
+    <div v-if="errMsg !== ''">{{errMsg}}</div>
+    <div class="dir-files" v-else>
       <div v-for="f of files" :class="{'is-dir': f.isDir}" @click="f.isDir && cd(f.name)">{{f.name}}</div>
     </div>
   </div>

@@ -42,7 +42,7 @@ body {
 .dir-files > div {
   height: max-content;
   padding: 1rem;
-  border: 2px solid rgb(114, 114, 114);
+  border: 2px solid rgb(71, 71, 71);
   border-radius: 4px;
   cursor: pointer;
 }

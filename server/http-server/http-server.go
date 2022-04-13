@@ -2,10 +2,12 @@ package httpServer
 
 import (
 	"encoding/json"
+	"fmt"
 	"ftp/common"
 	serverUtils "ftp/server/server-utils"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"path/filepath"
 
@@ -51,13 +53,30 @@ func ls(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(filesResponse)
 }
 
+func printNetworks(port string) {
+	fmt.Println("running on:")
+	fmt.Println("    http://localhost" + port)
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	for _, address := range addrs {
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.IsGlobalUnicast() {
+			if ipnet.IP.To4() != nil {
+				fmt.Println("    http://" + ipnet.IP.String() + port)
+			}
+		}
+	}
+}
+
 func StartHttpServer(PORT string) {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/pwd", curWorkingDir)
 	r.HandleFunc("/ls", ls).Methods("POST")
 	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./server/http-server/public/"))))
-	log.Println("running http server: http://localhost:" + PORT)
+	printNetworks(":" + PORT)
 
 	if err := http.ListenAndServe(":"+PORT, r); err != nil {
 		log.Fatal("Error Starting the HTTP Server :", err)
