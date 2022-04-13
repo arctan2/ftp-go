@@ -1,9 +1,9 @@
 package common
 
 type FileStruct struct {
-	Name  string
-	IsDir bool
-	Size  int64
+	Name  string `json:"name"`
+	IsDir bool   `json:"isDir"`
+	Size  int64  `json:"size"`
 }
 
 type DirName string

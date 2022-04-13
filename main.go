@@ -66,6 +66,7 @@ func main() {
 	}
 
 	if isHttpMode {
+		httpServer.StartHttpServer("5000")
 		return
 	}
 	if isServerMode {

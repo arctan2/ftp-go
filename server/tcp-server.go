@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"strings"
 
 	"ftp/common"
+	serverUtils "ftp/server/server-utils"
 )
 
 func sendFile(fileName string, conn net.Conn) (int64, error) {
@@ -36,24 +36,21 @@ func handleConn(conn net.Conn) {
 
 	switch cmd, _ := reader.ReadString('\n'); strings.TrimSpace(cmd) {
 	case "pwd":
-		fp, _ := filepath.Abs("./")
-		gh.Encode(common.DirName(filepath.ToSlash(fp)))
+		if dirPath, err := serverUtils.GetAbsPath("./"); err == nil {
+			gh.Encode(dirPath)
+		}
 	case "ls":
 		dirName, err := common.Decode[string](gh)
 
 		if err != nil {
-			fmt.Println("unable to get dirname: ", err.Error())
+			gh.Encode(err.Error())
 			return
 		}
 
-		files, err := ioutil.ReadDir(dirName)
+		fileList, err := serverUtils.GetFileList(dirName)
 		if err != nil {
+			gh.Encode(err.Error())
 			return
-		}
-		var fileList []common.FileStruct
-		for _, f := range files {
-			fileStruc := common.FileStruct{Name: f.Name(), IsDir: f.IsDir(), Size: f.Size()}
-			fileList = append(fileList, fileStruc)
 		}
 		gh.Encode(fileList)
 	case "cd":

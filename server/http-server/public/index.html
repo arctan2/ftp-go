@@ -5,10 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
   <title>hehe boi</title>
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js" defer></script>
   <script src="script.js" defer></script>
 </head>
 <body>
-  <div id="cur-working-dir"></div>
-  <div class="dir-content"></div>
+  <div id="app">
+    <div class="top-bar">
+      <div @click="cd('..')">{{"<-"}}</div>
+      <div id="cur-working-dir" style="display: inline-block;">{{curDir}}</div>
+    </div>
+    <div class="dir-files">
+      <div v-for="f of files" :class="{'is-dir': f.isDir}" @click="f.isDir && cd(f.name)">{{f.name}}</div>
+    </div>
+  </div>
 </body>
 </html>

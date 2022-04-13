@@ -114,13 +114,13 @@ func (re *remoteEnvStruct) fetchCurDirFromServer() error {
 	defer conn.Close()
 
 	gh := common.NewGobHandler(conn, conn)
-	d, err := common.Decode[common.DirName](gh)
+	d, err := common.Decode[string](gh)
 
 	if err != nil {
 		return err
 	}
 
-	re.curDir = strings.TrimSpace(string(d))
+	re.curDir = strings.TrimSpace(d)
 	return nil
 }
 

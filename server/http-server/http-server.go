@@ -2,6 +2,8 @@ package httpServer
 
 import (
 	"encoding/json"
+	"ftp/common"
+	serverUtils "ftp/server/server-utils"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -10,25 +12,43 @@ import (
 	"github.com/gorilla/mux"
 )
 
+type ErrStruct struct {
+	Err    bool   `json:"err"`
+	ErrMsg string `json:"errMsg"`
+}
+
 func curWorkingDir(w http.ResponseWriter, r *http.Request) {
-	fp, _ := filepath.Abs("./")
-	w.Write([]byte(filepath.ToSlash(fp)))
+	if dirPath, err := serverUtils.GetAbsPath("./"); err == nil {
+		w.Write([]byte(filepath.ToSlash(dirPath)))
+	}
 }
 
 func ls(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
 	reqBody, _ := ioutil.ReadAll(r.Body)
 
-	var post struct {
+	var path struct {
 		Path string `json:"path"`
 	}
 
-	err := json.Unmarshal(reqBody, &post)
+	err := json.Unmarshal(reqBody, &path)
+
+	var filesResponse struct {
+		ErrStruct
+		Files []common.FileStruct `json:"files"`
+	}
 
 	if err != nil {
-		w.Write([]byte("something went wrong."))
+		filesResponse.Err = true
+		filesResponse.ErrMsg = err.Error()
 	} else {
-
+		filesResponse.Files, err = serverUtils.GetFileList(path.Path)
+		if err != nil {
+			filesResponse.Err = true
+			filesResponse.ErrMsg = err.Error()
+		}
 	}
+	json.NewEncoder(w).Encode(filesResponse)
 }
 
 func StartHttpServer(PORT string) {

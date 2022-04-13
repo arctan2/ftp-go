@@ -3,6 +3,8 @@
   padding: 0;
   box-sizing: border-box;
   font-family: monospace;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -10,6 +12,9 @@ body {
   padding: 1rem;
   position: relative;
   color: white;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
 }
 
 #cur-working-dir{
@@ -17,7 +22,31 @@ body {
   margin-bottom: 1rem;
 }
 
-.dir-content{
+.top-bar div:first-child{
+  display: inline-block;
+  font-size: 1.5rem;
+  margin-right: 0.5rem;
+  cursor: pointer;
+}
+
+.dir-files{
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 1rem 1rem;
+  width: 100%;
+  max-height: 95%;
+  overflow: auto;
+}
+
+.dir-files > div {
+  height: max-content;
+  padding: 1rem;
+  border: 2px solid rgb(114, 114, 114);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.is-dir{
+  color: rgb(45, 45, 255);
 }
