@@ -1,22 +1,16 @@
-function Dir() {
-  this.dirStr = ""
-
-  this.set = newDir => {
-    this.dirStr = newDir
-  }
-
-}
-
 const vueApp = new Vue({
   el: '#app',
   data: { 
     curDir: "",
     files: [],
     dirType: "",
-    errMsg: ""
+    errMsg: "",
+    loading: false
   },
   methods: {
     async getFilesFromServer(path) {
+      if(this.loading) return
+      this.loading = true
       if(this.errMsg !== "") {
         this.errMsg = ""
         this.files = []
@@ -31,14 +25,13 @@ const vueApp = new Vue({
       
       if(data && data.err) {
         this.curDir = path
-        return this.errMsg = data.errMsg
-      }
-
-      if(res.ok) {
-        this.files = data.files
+        this.errMsg = data.errMsg
+      } else if(res.ok) {
+        this.files = (data.files === null) ? [] : data.files
         this.curDir = path
-        if(this.curDir === "" && this.dirType === "unix") this.curDir = "/"
-      }
+      } else this.errMsg = "something went wrong."
+      if(this.curDir === "" && this.dirType === "unix") this.curDir = "/"
+      this.loading = false
     },
     async cd(dirName) {
       if(dirName === "..") {

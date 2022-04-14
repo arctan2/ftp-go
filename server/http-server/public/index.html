@@ -11,12 +11,21 @@
 <body>
   <div id="app">
     <div class="top-bar">
-      <div @click="cd('..')">{{"<-"}}</div>
+      <div class="nav-bar">
+        <div @click="cd('..')" class="back-btn"></div>
+        <div @click="getFilesFromServer(curDir)" class="refresh-btn">
+          <img src="./refresh.png" alt="refresh">
+        </div>
+      </div>
       <div id="cur-working-dir" style="display: inline-block;">{{curDir}}</div>
     </div>
     <div v-if="errMsg !== ''">{{errMsg}}</div>
-    <div class="dir-files" v-else>
-      <div v-for="f of files" :class="{'is-dir': f.isDir}" @click="f.isDir && cd(f.name)">{{f.name}}</div>
+    <div class="files-container" v-else>
+      <div class="dir-files">
+        <div v-for="f of files" :class="{'is-dir': f.isDir}" @click="f.isDir && cd(f.name)">{{f.name}}</div>
+      </div>
+      <div v-if="files.length === 0">this directory is empty.</div>
+      <div v-if="loading" class="loading">loading</div>
     </div>
   </div>
 </body>
