@@ -21,16 +21,29 @@ body {
   color: rgb(13, 255, 0);
   margin-bottom: 1rem;
   font-size: 1.3rem;
+  display: inline-block;
+  width: 100%;
+  background: transparent;
+  border: 0;
 }
 
 .top-bar .nav-bar{
   margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
 }
 
 .top-bar .nav-bar > div {
   display: inline-block;
   cursor: pointer;
-  margin-left: 0.5rem;
+  margin-left: 1rem;
+}
+
+.reset-data{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.2rem;
 }
 
 .back-btn{

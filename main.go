@@ -12,7 +12,6 @@ import (
 )
 
 func main() {
-	httpServer.StartHttpServer("5000")
 	var (
 		isServerMode bool
 		isClientMode bool
@@ -66,7 +65,7 @@ func main() {
 	}
 
 	if isHttpMode {
-		httpServer.StartHttpServer("5000")
+		httpServer.StartHttpServer(port)
 		return
 	}
 	if isServerMode {

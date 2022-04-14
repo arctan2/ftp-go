@@ -16,8 +16,11 @@
         <div @click="getFilesFromServer()" class="refresh-btn">
           <img src="./refresh.png" alt="refresh">
         </div>
+        <div @click="resetData" class="reset-data">reset</div>
       </div>
-      <div id="cur-working-dir" style="display: inline-block;">{{curDir}}</div>
+      <form @submit.prevent="dirChange" autocomplete="off">
+        <input id="cur-working-dir" autocomplete="off" v-model="curDir" />
+      </form>
     </div>
     <div v-if="errMsg !== ''">{{errMsg}}</div>
     <div class="files-container" v-else>

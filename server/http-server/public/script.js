@@ -63,6 +63,27 @@ const vueApp = new Vue({
       if(res.ok) {
         this.curDir = data
       }
+    },
+    async dirChange() {
+      const res = await fetch("/path-exists", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ path: this.curDir })
+      })
+      const data = await res.json()
+      
+      if(data && data.err)
+        this.errMsg = data.errMsg
+      else if(!data.pathExists)
+        this.errMsg = "the specified path doesn't exist."
+      else
+        await this.getFilesFromServer()
+    },
+    async resetData() {
+      await this.getDirFromServer()
+      this.getFilesFromServer()
     }
   },
   async mounted() {

@@ -53,6 +53,30 @@ func ls(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(filesResponse)
 }
 
+func pathExists(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+	reqBody, _ := ioutil.ReadAll(r.Body)
+
+	var path struct {
+		Path string `json:"path"`
+	}
+
+	err := json.Unmarshal(reqBody, &path)
+
+	var filesResponse struct {
+		ErrStruct
+		PathExists bool `json:"pathExists"`
+	}
+
+	if err != nil {
+		filesResponse.Err = true
+		filesResponse.ErrMsg = err.Error()
+	} else {
+		filesResponse.PathExists = serverUtils.PathExists(path.Path)
+	}
+	json.NewEncoder(w).Encode(filesResponse)
+}
+
 func printNetworks(port string) {
 	fmt.Println("running on:")
 	fmt.Println("    http://localhost" + port)
@@ -75,6 +99,7 @@ func StartHttpServer(PORT string) {
 
 	r.HandleFunc("/pwd", curWorkingDir)
 	r.HandleFunc("/ls", ls).Methods("POST")
+	r.HandleFunc("/path-exists", pathExists).Methods("POST")
 	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./server/http-server/public/"))))
 	printNetworks(":" + PORT)
 
