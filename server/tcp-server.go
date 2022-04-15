@@ -75,7 +75,7 @@ func handleConn(conn net.Conn) {
 
 			os.Mkdir("./.tmp", os.ModePerm)
 			gh.Encode("zipping...")
-			common.ZipSource(filePath, zipPath, gh)
+			common.ZipSource([]string{filePath}, zipPath, gh)
 			zfStat, err := os.Stat(zipPath)
 
 			if err != nil {

@@ -23,8 +23,19 @@ func DirSize(path string) (int64, error) {
 	return size, err
 }
 
-func ZipSource(source, target string, gh *GobHandler) error {
-	zf, err := os.Create(target)
+func ZipSource(source []string, target string, gh *GobHandler) error {
+	var (
+		zf  *os.File
+		err error
+	)
+
+	if PathExists(target) {
+		fmt.Println(source)
+		zf, err = os.Open(target)
+	} else {
+		zf, err = os.Create(target)
+	}
+
 	if err != nil {
 		return err
 	}
@@ -35,48 +46,56 @@ func ZipSource(source, target string, gh *GobHandler) error {
 
 	var totalSize, doneSize int64
 	if gh != nil {
-		totalSize, _ = DirSize(source)
+		for _, path := range source {
+			s, _ := DirSize(path)
+			totalSize += s
+		}
 	}
 
-	return filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
+	for _, sourcePath := range source {
+		if err = filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if info.IsDir() {
+				return nil
+			}
+
+			header, err := zip.FileInfoHeader(info)
+			if err != nil {
+				return err
+			}
+
+			header.Method = zip.Deflate
+
+			header.Name, err = filepath.Rel(filepath.Dir(sourcePath), path)
+			if err != nil {
+				return err
+			}
+
+			headerWriter, err := writer.CreateHeader(header)
+			if err != nil {
+				return err
+			}
+
+			f, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+
+			n, err := io.Copy(headerWriter, f)
+			if gh != nil {
+				doneSize += n
+				go gh.Encode(ZipProgress{Max: totalSize, Current: doneSize, IsDone: totalSize == doneSize})
+			}
+			return err
+		}); err != nil {
 			return err
 		}
-
-		if info.IsDir() {
-			return nil
-		}
-
-		header, err := zip.FileInfoHeader(info)
-		if err != nil {
-			return err
-		}
-
-		header.Method = zip.Deflate
-
-		header.Name, err = filepath.Rel(filepath.Dir(source), path)
-		if err != nil {
-			return err
-		}
-
-		headerWriter, err := writer.CreateHeader(header)
-		if err != nil {
-			return err
-		}
-
-		f, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		n, err := io.Copy(headerWriter, f)
-		if gh != nil {
-			doneSize += n
-			go gh.Encode(ZipProgress{Max: totalSize, Current: doneSize, IsDone: totalSize == doneSize})
-		}
-		return err
-	})
+	}
+	return err
 }
 
 func UnzipSource(source, destination string) error {

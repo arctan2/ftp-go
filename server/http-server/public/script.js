@@ -15,6 +15,21 @@ function downloadFile(filePath, fileName) {
     })
 }
 
+function downloadMultipleFiles(filePathList) {
+  fetch("/get-multiple", { body: JSON.stringify(filePathList), method: "POST" })
+    .then(res => res.blob())
+    .then(blob => {
+      const fileURL = window.URL.createObjectURL(blob);
+      const fileLink = document.createElement('a');
+      fileLink.style.display = "none";
+      fileLink.href = fileURL;
+      fileLink.download = "download.zip";
+      document.body.appendChild(fileLink)
+      fileLink.click();
+      document.body.removeChild(fileLink)
+    })
+}
+
 
 const vueApp = new Vue({
   el: '#app',
@@ -113,8 +128,7 @@ const vueApp = new Vue({
     },
     async done() {
       if(this.selected.size === 0) return this.isSelectMode = false;
-      const fileName = [...this.selected][0];
-      downloadFile(this.curDir + "/" + fileName, fileName);
+      downloadMultipleFiles([...this.selected].map(fileName => this.curDir + "/" + fileName));
       this.selected.clear();
       this.isSelectMode = false;
     }

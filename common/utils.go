@@ -2,6 +2,7 @@ package common
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 )
@@ -13,4 +14,11 @@ func ClearScreen() {
 func Scan(placeholder string) (string, error) {
 	fmt.Print(placeholder)
 	return bufio.NewReader(os.Stdin).ReadString('\n')
+}
+
+func PathExists(path string) bool {
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		return false
+	}
+	return true
 }

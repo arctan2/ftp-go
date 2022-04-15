@@ -73,7 +73,7 @@ func pathExists(w http.ResponseWriter, r *http.Request) {
 		filesResponse.Err = true
 		filesResponse.ErrMsg = err.Error()
 	} else {
-		filesResponse.PathExists = serverUtils.PathExists(path.Path)
+		filesResponse.PathExists = common.PathExists(path.Path)
 	}
 	json.NewEncoder(w).Encode(filesResponse)
 }
@@ -86,10 +86,33 @@ func getFiles(w http.ResponseWriter, r *http.Request) {
 
 	os.Mkdir("./.tmp", os.ModePerm)
 	zipPath := "./.tmp/" + fileName + ".zip"
-	common.ZipSource(filePath, zipPath, nil)
+	common.ZipSource([]string{filePath}, zipPath, nil)
 
 	http.ServeFile(w, r, zipPath)
 
+	os.RemoveAll("./.tmp/")
+}
+
+func getMultipleFiles(w http.ResponseWriter, r *http.Request) {
+	body, _ := ioutil.ReadAll(r.Body)
+
+	var paths []string
+
+	err := json.Unmarshal(body, &paths)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	os.Mkdir("./.tmp", os.ModePerm)
+	fileName := "download"
+	zipPath := "./.tmp/" + fileName + ".zip"
+	if err := common.ZipSource(paths, zipPath, nil); err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	http.ServeFile(w, r, zipPath)
 	os.RemoveAll("./.tmp/")
 }
 
@@ -117,6 +140,7 @@ func StartHttpServer(PORT string) {
 	r.HandleFunc("/ls", ls).Methods("POST")
 	r.HandleFunc("/path-exists", pathExists).Methods("POST")
 	r.HandleFunc("/get", getFiles).Methods("POST")
+	r.HandleFunc("/get-multiple", getMultipleFiles).Methods("POST")
 	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./server/http-server/public/"))))
 	printNetworks(":" + PORT)
 

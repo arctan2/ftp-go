@@ -12,7 +12,6 @@ import (
 )
 
 func main() {
-	httpServer.StartHttpServer("5000")
 	var (
 		isServerMode bool
 		isClientMode bool
@@ -77,5 +76,5 @@ func main() {
 		client.StartClient()
 		return
 	}
-	fmt.Println("please specify -c or -s flags.")
+	fmt.Println("please specify -c or -s or --http flags.")
 }
