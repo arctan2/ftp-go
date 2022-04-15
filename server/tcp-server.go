@@ -3,7 +3,6 @@ package server
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
@@ -13,20 +12,6 @@ import (
 	"ftp/common"
 	serverUtils "ftp/server/server-utils"
 )
-
-func sendFile(fileName string, conn net.Conn) (int64, error) {
-	file, err := os.Open(strings.TrimSpace(fileName))
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-	return io.Copy(conn, file)
-}
-
-func getFileName(fp string) string {
-	parts := strings.Split(fp, "/")
-	return parts[len(parts)-1]
-}
 
 func handleConn(conn net.Conn) {
 	defer conn.Close()
@@ -85,7 +70,7 @@ func handleConn(conn net.Conn) {
 		if _, err := os.Stat(filePath); err != nil {
 			break
 		} else {
-			fileName := getFileName(filePath)
+			fileName := serverUtils.GetFileName(filePath)
 			zipPath := "./.tmp/" + fileName + ".zip"
 
 			os.Mkdir("./.tmp", os.ModePerm)
@@ -100,7 +85,7 @@ func handleConn(conn net.Conn) {
 
 			gh.Encode(common.FileStruct{Name: zfStat.Name(), IsDir: true, Size: zfStat.Size()})
 
-			sendFile(zipPath, conn)
+			serverUtils.SendFile(zipPath, conn)
 			os.RemoveAll("./.tmp/")
 		}
 	}

@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 
 	"github.com/gorilla/mux"
@@ -77,6 +78,21 @@ func pathExists(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(filesResponse)
 }
 
+func getFiles(w http.ResponseWriter, r *http.Request) {
+	body, _ := ioutil.ReadAll(r.Body)
+	fileName := serverUtils.GetFileName(string(body))
+
+	filePath, _ := filepath.Abs(fileName)
+
+	os.Mkdir("./.tmp", os.ModePerm)
+	zipPath := "./.tmp/" + fileName + ".zip"
+	common.ZipSource(filePath, zipPath, nil)
+
+	http.ServeFile(w, r, zipPath)
+
+	os.RemoveAll("./.tmp/")
+}
+
 func printNetworks(port string) {
 	fmt.Println("running on:")
 	fmt.Println("    http://localhost" + port)
@@ -100,6 +116,7 @@ func StartHttpServer(PORT string) {
 	r.HandleFunc("/pwd", curWorkingDir)
 	r.HandleFunc("/ls", ls).Methods("POST")
 	r.HandleFunc("/path-exists", pathExists).Methods("POST")
+	r.HandleFunc("/get", getFiles).Methods("POST")
 	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./server/http-server/public/"))))
 	printNetworks(":" + PORT)
 

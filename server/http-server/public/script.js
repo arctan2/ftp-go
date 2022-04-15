@@ -1,5 +1,21 @@
 const abortCtlr = { controller: null, isActive: false };
 
+function downloadFile(filePath, fileName) {
+  fetch("/get", { body: filePath, method: "POST" })
+    .then(res => res.blob())
+    .then(blob => {
+      const fileURL = window.URL.createObjectURL(blob);
+      const fileLink = document.createElement('a');
+      fileLink.style.display = "none";
+      fileLink.href = fileURL;
+      fileLink.download = fileName + ".zip";
+      document.body.appendChild(fileLink)
+      fileLink.click();
+      document.body.removeChild(fileLink)
+    })
+}
+
+
 const vueApp = new Vue({
   el: '#app',
   data: { 
@@ -7,7 +23,9 @@ const vueApp = new Vue({
     files: [],
     dirType: "",
     errMsg: "",
-    loading: false
+    loading: false,
+    isSelectMode: false,
+    selected: new Set()
   },
   methods: {
     async getFilesFromServer() {
@@ -84,6 +102,21 @@ const vueApp = new Vue({
     async resetData() {
       await this.getDirFromServer()
       this.getFilesFromServer()
+    },
+    handleFileClick(fName, isDir) {
+      if(this.isSelectMode) {
+        if(this.selected.has(fName)) this.selected.delete(fName)
+        else this.selected.add(fName)
+        this.$forceUpdate()
+      }
+      else isDir && this.cd(fName)
+    },
+    async done() {
+      if(this.selected.size === 0) return this.isSelectMode = false;
+      const fileName = [...this.selected][0];
+      downloadFile(this.curDir + "/" + fileName, fileName);
+      this.selected.clear();
+      this.isSelectMode = false;
     }
   },
   async mounted() {

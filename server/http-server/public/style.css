@@ -25,29 +25,30 @@ body {
   width: 100%;
   background: transparent;
   border: 0;
+  padding: 0.5rem;
 }
 
-.top-bar .nav-bar{
+.top-bar .nav-bar > div{
   margin-bottom: 1rem;
   display: flex;
   align-items: center;
 }
 
-.top-bar .nav-bar > div {
+.top-bar .nav-bar > div > div {
   display: inline-block;
   cursor: pointer;
   margin-left: 1rem;
+  font-size: 1.2rem;
 }
 
 .reset-data{
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 1.2rem;
 }
 
 .back-btn{
-  --bor-width: 0.7rem;
+  --bor-width: 0.9rem;
   border-bottom: var(--bor-width) solid transparent;
   border-top: var(--bor-width) solid transparent;
   border-right: var(--bor-width) solid white;
@@ -56,8 +57,8 @@ body {
 }
 
 .refresh-btn{
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 2rem;
+  height: 2rem;
 }
 
 .refresh-btn > img {
@@ -95,6 +96,10 @@ body {
   border: 2px solid rgb(71, 71, 71);
   border-radius: 4px;
   cursor: pointer;
+}
+
+.dir-files > .is-selected{
+  background-color: rgb(170, 170, 170);
 }
 
 .files-container{

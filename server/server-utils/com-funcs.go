@@ -3,9 +3,13 @@ package serverUtils
 import (
 	"errors"
 	"ftp/common"
+	"io"
 	"io/ioutil"
+	"log"
+	"net"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func GetFileList(dirName string) ([]common.FileStruct, error) {
@@ -31,4 +35,18 @@ func PathExists(path string) bool {
 		return false
 	}
 	return true
+}
+
+func SendFile(fileName string, conn net.Conn) (int64, error) {
+	file, err := os.Open(strings.TrimSpace(fileName))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+	return io.Copy(conn, file)
+}
+
+func GetFileName(fp string) string {
+	parts := strings.Split(fp, "/")
+	return parts[len(parts)-1]
 }

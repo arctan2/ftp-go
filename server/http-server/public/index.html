@@ -12,20 +12,36 @@
   <div id="app">
     <div class="top-bar">
       <div class="nav-bar">
-        <div @click="cd('..')" class="back-btn"></div>
-        <div @click="getFilesFromServer()" class="refresh-btn">
-          <img src="./refresh.png" alt="refresh">
+        <div v-if="!isSelectMode">
+          <div @click="cd('..')" class="back-btn"></div>
+          <div @click="getFilesFromServer()" class="refresh-btn">
+            <img src="./refresh.png" alt="refresh">
+          </div>
+          <div @click="resetData" class="reset-data">reset</div>
+          <div @click="isSelectMode = true">select</div>
         </div>
-        <div @click="resetData" class="reset-data">reset</div>
+        <div v-else>
+          <div>selected ({{selected.size}})</div>
+          <div @click="() => {
+            this.isSelectMode = false
+            this.selected = new Set()
+          }">cancel</div>
+          <div @click="done()">done</div>
+        </div>
       </div>
       <form @submit.prevent="dirChange" autocomplete="off">
-        <input id="cur-working-dir" autocomplete="off" v-model="curDir" />
+        <input id="cur-working-dir" autocomplete="off" v-model="curDir" :disabled="isSelectMode" />
       </form>
     </div>
     <div v-if="errMsg !== ''">{{errMsg}}</div>
     <div class="files-container" v-else>
       <div class="dir-files">
-        <div v-for="f of files" :class="{'is-dir': f.isDir}" @click="f.isDir && cd(f.name)">{{f.name}}</div>
+        <div 
+          v-for="f, idx of files"
+          :key="idx"
+          :class="{'is-dir': f.isDir, 'is-selected': selected.has(f.name)}" 
+          @click="handleFileClick(f.name, f.isDir)"
+        >{{f.name}}</div>
       </div>
       <div v-if="files.length === 0">this directory is empty.</div>
       <div v-if="loading" class="loading">loading</div>
