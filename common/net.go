@@ -4,7 +4,7 @@ import (
 	"encoding/gob"
 	"io"
 	"net"
-	"os"
+	"fmt"
 )
 
 type GobHandler struct {
@@ -16,19 +16,28 @@ type Schema interface {
 	[]FileStruct | FileStruct | DirName | string | bool | Res | ZipProgress
 }
 
+var (
+	LOCAL_HOST = "127.0.0.1"
+)
+
 func (r Res) Error() string {
 	return r.Data
 }
 
 func GetIPv4Str() string {
-	host, _ := os.Hostname()
-	addrs, _ := net.LookupIP(host)
-	for _, addr := range addrs {
-		if ipv4 := addr.To4(); ipv4 != nil {
-			return ipv4.String()
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		fmt.Println(err.Error())
+		return LOCAL_HOST
+	}
+	for _, address := range addrs {
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.IsGlobalUnicast() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
 		}
 	}
-	return ""
+	return LOCAL_HOST
 }
 
 func GetTcpAddrStr(PORT string) string {

@@ -7,7 +7,6 @@ import (
 	serverUtils "ftp/server/server-utils"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -119,17 +118,8 @@ func getMultipleFiles(w http.ResponseWriter, r *http.Request) {
 func printNetworks(port string) {
 	fmt.Println("running on:")
 	fmt.Println("    http://localhost" + port)
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-	for _, address := range addrs {
-		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.IsGlobalUnicast() {
-			if ipnet.IP.To4() != nil {
-				fmt.Println("    http://" + ipnet.IP.String() + port)
-			}
-		}
+	if ipv4 := common.GetIPv4Str(); ipv4 != common.LOCAL_HOST {
+		fmt.Println("    http://" + ipv4 + port)
 	}
 }
 
