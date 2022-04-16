@@ -1,8 +1,10 @@
 package client
 
 import (
+	"encoding/gob"
 	"errors"
 	"fmt"
+	"ftp/common"
 	"net"
 	"os"
 	"path/filepath"
@@ -27,6 +29,7 @@ type envHandler interface {
 	localEnv() localEnv
 	setCurRemoteName(string) error
 	handleCmd([]string) error
+	loadRemotesFromGobFile()
 
 	closeAllRemotesRlns()
 }
@@ -43,8 +46,53 @@ func newEnvHandler() envHandler {
 		remotes:    make(map[string]remoteEnv),
 		curEnvType: LOCAL,
 	}
+	eh.loadRemotesFromGobFile()
 	eh.localEnv().refreshCurDirFiles()
 	return eh
+}
+
+func (eh *envHandlerStruct) loadRemotesFromGobFile() {
+	rf, err := os.Open("remotes.gob")
+	if err != nil {
+		return
+	}
+	defer rf.Close()
+
+	dec := gob.NewDecoder(rf)
+	remotes := make(map[string]string)
+	if err = dec.Decode(&remotes); err != nil {
+		return
+	}
+	for rName, addr := range remotes {
+		rEnv := newRemoteEnv(newDialer(addr), rName)
+		rEnv.initRemote(false)
+		eh.addRemoteEnv(rName, rEnv)
+	}
+}
+
+func (eh *envHandlerStruct) saveRemotesToGobFile() {
+	remoteMap := make(map[string]string)
+	for rName, rEnv := range eh.remotes {
+		remoteMap[rName] = rEnv.dialer().addr
+	}
+
+	var (
+		rf  *os.File
+		err error
+	)
+
+	if common.PathExists("remotes.gob") {
+		rf, err = os.Open("remotes.gob")
+	} else {
+		rf, err = os.Create("remotes.gob")
+	}
+	if err != nil {
+		return
+	}
+	defer rf.Close()
+
+	enc := gob.NewEncoder(rf)
+	enc.Encode(remoteMap)
 }
 
 func (eh *envHandlerStruct) closeAllRemotesRlns() {
@@ -150,8 +198,9 @@ usage: net add <address> <remote-name>
 		}
 		rEnv := newRemoteEnv(newDialer(cmdArgs[0]), remoteName)
 		eh.addRemoteEnv(remoteName, rEnv)
+		eh.saveRemotesToGobFile()
 
-		if err = rEnv.initRemote(); err != nil {
+		if err = rEnv.initRemote(true); err != nil {
 			return err
 		}
 		eh.handleCmd([]string{"net", "switch", remoteName})

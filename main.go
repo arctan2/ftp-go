@@ -42,14 +42,15 @@ func main() {
 
 	flag.Usage = func() {
 		fmt.Fprint(os.Stderr, `
--s, --server   run as server
--c, --client   run as client
+server: 
+	-p  | -port <port>         port to run on
+	-i4 | -ipv4 <addr>         ipv4 address  
+	-a  | -addr <addr>:<port>  server address
+	-s  | -server              run as server
+	-http                      run http server 
 
---http  run http server 
-
--p, --port     port to run on
--i4, --ipv4    ipv4 address  
--a, --addr     server address
+client:
+	-c | -client   run as client
 `)
 	}
 
