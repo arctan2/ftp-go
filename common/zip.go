@@ -30,7 +30,6 @@ func ZipSource(source []string, target string, gh *GobHandler) error {
 	)
 
 	if PathExists(target) {
-		fmt.Println(source)
 		zf, err = os.Open(target)
 	} else {
 		zf, err = os.Create(target)
@@ -55,6 +54,7 @@ func ZipSource(source []string, target string, gh *GobHandler) error {
 	for _, sourcePath := range source {
 		if err = filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
+				fmt.Println(err)
 				return err
 			}
 

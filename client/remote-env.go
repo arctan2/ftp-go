@@ -247,8 +247,8 @@ func (re *remoteEnvStruct) get(cmdArgs []string, dest string) {
 		return
 	}
 
-	os.MkdirAll("./.tmp-client", os.ModePerm)
-	file, err := os.Create("./.tmp-client/" + fileDetails.Name)
+	tmpDir, err := os.MkdirTemp("", "ftp-go-client")
+	file, err := os.Create(tmpDir + "/" + fileDetails.Name)
 
 	if err != nil {
 		fmt.Println(err.Error())
@@ -257,7 +257,7 @@ func (re *remoteEnvStruct) get(cmdArgs []string, dest string) {
 
 	defer func() {
 		file.Close()
-		os.RemoveAll("./.tmp-client")
+		os.RemoveAll(tmpDir)
 	}()
 
 	if err != nil {
@@ -295,6 +295,6 @@ func (re *remoteEnvStruct) get(cmdArgs []string, dest string) {
 	}
 
 	fmt.Println("extracting...")
-	common.UnzipSource("./.tmp-client/"+fileDetails.Name, ddir)
+	common.UnzipSource(tmpDir+"/"+fileDetails.Name, ddir)
 	fmt.Printf("got file '%s' successfully\n", cmdArgs[1])
 }

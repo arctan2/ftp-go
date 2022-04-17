@@ -70,10 +70,11 @@ func handleConn(conn net.Conn) {
 		if _, err := os.Stat(filePath); err != nil {
 			break
 		} else {
+			tmpDir, err := os.MkdirTemp("", "ftp-go-server")
+			defer os.RemoveAll(tmpDir)
 			fileName := serverUtils.GetFileName(filePath)
-			zipPath := "./.tmp/" + fileName + ".zip"
+			zipPath := tmpDir + "/" + fileName + ".zip"
 
-			os.Mkdir("./.tmp", os.ModePerm)
 			gh.Encode("zipping...")
 			common.ZipSource([]string{filePath}, zipPath, gh)
 			zfStat, err := os.Stat(zipPath)
@@ -86,7 +87,6 @@ func handleConn(conn net.Conn) {
 			gh.Encode(common.FileStruct{Name: zfStat.Name(), IsDir: true, Size: zfStat.Size()})
 
 			serverUtils.SendFile(zipPath, conn)
-			os.RemoveAll("./.tmp/")
 		}
 	}
 }
