@@ -69,6 +69,8 @@ func ZipSource(source []string, target string, gh *GobHandler) error {
 
 			header.Method = zip.Deflate
 
+			// path = filepath.ToSlash(path)
+
 			header.Name, err = filepath.Rel(filepath.Dir(sourcePath), path)
 			if err != nil {
 				return err
@@ -126,6 +128,7 @@ func unzipFile(f *zip.File, destination string) error {
 		return fmt.Errorf("invalid file path: %s", filePath)
 	}
 
+	filePath = strings.ReplaceAll(filePath, "\\", "/")
 	if f.FileInfo().IsDir() {
 		if err := os.MkdirAll(filePath, os.ModePerm); err != nil {
 			return err
