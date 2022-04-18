@@ -2,18 +2,20 @@ package server
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"ftp/common"
 	serverUtils "ftp/server/server-utils"
 )
 
-func handleConn(conn net.Conn) {
+func handleConn(conn net.Conn, logger common.Logger) {
 	defer conn.Close()
 
 	reader := bufio.NewReader(conn)
@@ -86,12 +88,17 @@ func handleConn(conn net.Conn) {
 
 			gh.Encode(common.FileStruct{Name: zfStat.Name(), IsDir: true, Size: zfStat.Size()})
 
+			b, _ := json.MarshalIndent([]string{filePath}, "", "\t")
+			logger.Log("get on", time.Now(), string(b))
+
 			serverUtils.SendFile(zipPath, conn)
 		}
 	}
 }
 
 func StartTcpServer(tcpAddr string) {
+	curDate := time.Now().Local().Format("01-02-2006")
+	logger, err := common.NewLoggerWithDirAndFileName("./logs/tcp", curDate+".log")
 	ln, err := net.Listen("tcp", tcpAddr)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -104,6 +111,6 @@ func StartTcpServer(tcpAddr string) {
 		if err != nil {
 			log.Fatal(err.Error())
 		}
-		go handleConn(conn)
+		go handleConn(conn, logger)
 	}
 }

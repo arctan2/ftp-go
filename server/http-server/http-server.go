@@ -1,6 +1,7 @@
 package httpServer
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"ftp/common"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -77,21 +79,6 @@ func pathExists(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(filesResponse)
 }
 
-func getFiles(w http.ResponseWriter, r *http.Request) {
-	body, _ := ioutil.ReadAll(r.Body)
-	fileName := serverUtils.GetFileName(string(body))
-
-	filePath, _ := filepath.Abs(fileName)
-
-	os.Mkdir("./.tmp", os.ModePerm)
-	zipPath := "./.tmp/" + fileName + ".zip"
-	common.ZipSource([]string{filePath}, zipPath, nil)
-
-	http.ServeFile(w, r, zipPath)
-
-	os.RemoveAll("./.tmp/")
-}
-
 func getMultipleFiles(w http.ResponseWriter, r *http.Request) {
 	body, _ := ioutil.ReadAll(r.Body)
 
@@ -104,15 +91,16 @@ func getMultipleFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	os.Mkdir("./.tmp", os.ModePerm)
+	tempDir, _ := os.MkdirTemp("", "ftp-go-http")
+	defer os.RemoveAll(tempDir)
 	fileName := "download"
-	zipPath := "./.tmp/" + fileName + ".zip"
+	zipPath := filepath.Join(tempDir, fileName+".zip")
+
 	if err := common.ZipSource(paths, zipPath, nil); err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 	http.ServeFile(w, r, zipPath)
-	os.RemoveAll("./.tmp/")
 }
 
 func printNetworks(port string) {
@@ -123,14 +111,39 @@ func printNetworks(port string) {
 	}
 }
 
+func LogGetFiles(logger common.Logger, logDescr string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		fn := func(w http.ResponseWriter, r *http.Request) {
+			body, _ := ioutil.ReadAll(r.Body)
+			r.Body.Close()
+			r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+			next.ServeHTTP(w, r)
+
+			var paths []string
+			if json.Unmarshal(body, &paths) == nil {
+				b, _ := json.MarshalIndent(paths, "", "\t")
+				logger.Log(logDescr, time.Now(), string(b))
+			}
+		}
+		return http.HandlerFunc(fn)
+	}
+}
+
 func StartHttpServer(PORT string) {
+	curDate := time.Now().Local().Format("01-02-2006")
+	logger, err := common.NewLoggerWithDirAndFileName("./logs/http", curDate+".log")
+
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 	r := mux.NewRouter()
 
 	r.HandleFunc("/pwd", curWorkingDir)
-	r.HandleFunc("/ls", ls).Methods("POST")
-	r.HandleFunc("/path-exists", pathExists).Methods("POST")
-	r.HandleFunc("/get", getFiles).Methods("POST")
-	r.HandleFunc("/get-multiple", getMultipleFiles).Methods("POST")
+	r.HandleFunc("/ls", ls).Methods(http.MethodPost)
+	r.HandleFunc("/path-exists", pathExists).Methods(http.MethodPost)
+	fr := r.NewRoute().Subrouter()
+	fr.Use(LogGetFiles(logger, "get on "))
+	fr.HandleFunc("/get-files", getMultipleFiles).Methods(http.MethodPost)
 	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./server/http-server/public/"))))
 	printNetworks(":" + PORT)
 
