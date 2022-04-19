@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
   <title>hehe boi</title>
-  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js" defer></script>
+  <script src="vue.min.js" defer></script>
   <script src="script.js" defer></script>
 </head>
 <body>
@@ -18,15 +18,19 @@
             <img src="./refresh.png" alt="refresh">
           </div>
           <div @click="resetData" class="reset-data">reset</div>
-          <div @click="isSelectMode = true">select</div>
+          <div @click="isSelectMode = true" style="color: rgb(249, 255, 89);">select</div>
+          <label v-if="!loading && (files.length !== 0) && (errMsg === '')" class="file-upload" style="color: rgb(0, 102, 255);">
+            <input type="file" multiple @change="filesChange" />
+            upload
+          </label>
         </div>
         <div v-else>
           <div>selected ({{selected.size}})</div>
           <div @click="() => {
             this.isSelectMode = false
             this.selected = new Set()
-          }">cancel</div>
-          <div @click="done()">done</div>
+          }" class="cancel" style="color: rgb(255, 69, 69);">cancel</div>
+          <div @click="done()" style="color: rgb(0, 255, 102);">done</div>
         </div>
       </div>
       <form @submit.prevent="dirChange" autocomplete="off">

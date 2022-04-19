@@ -24,9 +24,28 @@ const vueApp = new Vue({
     errMsg: "",
     loading: false,
     isSelectMode: false,
-    selected: new Set()
+    selected: new Set(),
   },
   methods: {
+    async upload(files) {
+      const formData = new FormData()
+      for(const f of files)
+        formData.append(f.name, f)
+      formData.append("path", this.curDir)
+
+      const res = await fetch("/upload", {
+        method: "POST",
+        body: formData
+      })
+      const data = await res.json()
+      if(!data?.err)
+        this.getFilesFromServer()
+    },
+    filesChange(e) {
+      this.upload([...e.target.files])
+      e.target.type = ""
+      e.target.type = "file"
+    },
     async getFilesFromServer() {
       if(abortCtlr.isActive) abortCtlr.controller?.abort();
       this.loading = true
@@ -48,7 +67,7 @@ const vueApp = new Vue({
         const data = await res.json()
         
         if(data && data.err) {
-          this.errMsg = data.errMsg
+          this.errMsg = data.msg
         } else if(res.ok) {
           this.files = (data.files === null) ? [] : data.files
         } else this.errMsg = "something went wrong."
@@ -92,7 +111,7 @@ const vueApp = new Vue({
       const data = await res.json()
       
       if(data && data.err)
-        this.errMsg = data.errMsg
+        this.errMsg = data.msg
       else if(!data.pathExists)
         this.errMsg = "the specified path doesn't exist."
       else

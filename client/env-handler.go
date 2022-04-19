@@ -81,7 +81,7 @@ func (eh *envHandlerStruct) saveRemotesToGobFile() {
 		err error
 	)
 
-	if common.PathExists("remotes.gob") {
+	if common.IsPathExists("remotes.gob") {
 		rf, err = os.Open("remotes.gob")
 	} else {
 		rf, err = os.Create("remotes.gob")

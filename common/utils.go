@@ -16,7 +16,7 @@ func Scan(placeholder string) (string, error) {
 	return bufio.NewReader(os.Stdin).ReadString('\n')
 }
 
-func PathExists(path string) bool {
+func IsPathExists(path string) bool {
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		return false
 	}

@@ -34,7 +34,7 @@ body {
   align-items: center;
 }
 
-.top-bar .nav-bar > div > div {
+.top-bar .nav-bar > div > :is(div, label) {
   display: inline-block;
   cursor: pointer;
   margin-left: 1rem;
@@ -100,6 +100,10 @@ body {
 
 .dir-files > .is-selected{
   background-color: rgb(170, 170, 170);
+}
+
+.file-upload > input{
+  display: none;
 }
 
 .files-container{

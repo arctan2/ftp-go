@@ -29,7 +29,7 @@ func ZipSource(source []string, target string, gh *GobHandler) error {
 		err error
 	)
 
-	if PathExists(target) {
+	if IsPathExists(target) {
 		zf, err = os.Open(target)
 	} else {
 		zf, err = os.Create(target)

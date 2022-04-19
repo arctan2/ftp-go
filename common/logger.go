@@ -34,7 +34,7 @@ func NewLoggerWithDirAndFileName(dirName, fileName string) (Logger, error) {
 		f   *os.File
 		err error
 	)
-	if PathExists(fp) {
+	if IsPathExists(fp) {
 		if f, err = os.OpenFile(fp, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666); err != nil {
 			return nil, err
 		}

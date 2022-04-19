@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"ftp/common"
 	serverUtils "ftp/server/server-utils"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -16,9 +17,9 @@ import (
 	"github.com/gorilla/mux"
 )
 
-type ErrStruct struct {
-	Err    bool   `json:"err"`
-	ErrMsg string `json:"errMsg"`
+type ResponseStruct struct {
+	Err bool   `json:"err"`
+	Msg string `json:"msg"`
 }
 
 func curWorkingDir(w http.ResponseWriter, r *http.Request) {
@@ -37,22 +38,19 @@ func ls(w http.ResponseWriter, r *http.Request) {
 
 	err := json.Unmarshal(reqBody, &path)
 
-	var filesResponse struct {
-		ErrStruct
-		Files []common.FileStruct `json:"files"`
-	}
-
 	if err != nil {
-		filesResponse.Err = true
-		filesResponse.ErrMsg = err.Error()
+		respondErrMsg(err.Error(), w)
 	} else {
-		filesResponse.Files, err = serverUtils.GetFileList(path.Path)
-		if err != nil {
-			filesResponse.Err = true
-			filesResponse.ErrMsg = err.Error()
+		var res struct {
+			Files []common.FileStruct `json:"files"`
 		}
+		res.Files, err = serverUtils.GetFileList(path.Path)
+		if err != nil {
+			respondErrMsg(err.Error(), w)
+			return
+		}
+		json.NewEncoder(w).Encode(res)
 	}
-	json.NewEncoder(w).Encode(filesResponse)
 }
 
 func pathExists(w http.ResponseWriter, r *http.Request) {
@@ -65,18 +63,15 @@ func pathExists(w http.ResponseWriter, r *http.Request) {
 
 	err := json.Unmarshal(reqBody, &path)
 
-	var filesResponse struct {
-		ErrStruct
-		PathExists bool `json:"pathExists"`
-	}
-
 	if err != nil {
-		filesResponse.Err = true
-		filesResponse.ErrMsg = err.Error()
+		respondErrMsg(err.Error(), w)
 	} else {
-		filesResponse.PathExists = common.PathExists(path.Path)
+		var res struct {
+			PathExists bool `json:"pathExists"`
+		}
+		res.PathExists = common.IsPathExists(path.Path)
+		json.NewEncoder(w).Encode(res)
 	}
-	json.NewEncoder(w).Encode(filesResponse)
 }
 
 func getMultipleFiles(w http.ResponseWriter, r *http.Request) {
@@ -111,9 +106,51 @@ func printNetworks(port string) {
 	}
 }
 
-func LogGetFiles(logger common.Logger, logDescr string) func(http.Handler) http.Handler {
+func respondErrMsg(msg string, w http.ResponseWriter) {
+	res := ResponseStruct{Msg: msg, Err: true}
+	json.NewEncoder(w).Encode(res)
+}
+
+func respondSuccess(w http.ResponseWriter) {
+	json.NewEncoder(w).Encode(ResponseStruct{Err: false, Msg: "success"})
+}
+
+func upload(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+	if err := r.ParseMultipartForm(0); err != nil {
+		fmt.Println(err.Error())
+	}
+
+	toSavePath := r.FormValue("path")
+
+	if toSavePath == "" {
+		respondErrMsg("no path provided", w)
+	}
+
+	for k := range r.MultipartForm.File {
+		f, h, err := r.FormFile(k)
+		if err != nil {
+			continue
+		}
+		p := filepath.Join(toSavePath, h.Filename)
+		if common.IsPathExists(p) {
+			continue
+		}
+
+		downloadFile, err := os.Create(p)
+		if err != nil {
+			continue
+		}
+		io.Copy(downloadFile, f)
+		downloadFile.Close()
+		f.Close()
+	}
+	respondSuccess(w)
+}
+
+func LogGetFilesMiddleware(logger common.Logger, logDescr string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		fn := func(w http.ResponseWriter, r *http.Request) {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, _ := ioutil.ReadAll(r.Body)
 			r.Body.Close()
 			r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
@@ -124,8 +161,7 @@ func LogGetFiles(logger common.Logger, logDescr string) func(http.Handler) http.
 				b, _ := json.MarshalIndent(paths, "", "\t")
 				logger.Log(logDescr, time.Now(), string(b))
 			}
-		}
-		return http.HandlerFunc(fn)
+		})
 	}
 }
 
@@ -141,8 +177,9 @@ func StartHttpServer(PORT string) {
 	r.HandleFunc("/pwd", curWorkingDir)
 	r.HandleFunc("/ls", ls).Methods(http.MethodPost)
 	r.HandleFunc("/path-exists", pathExists).Methods(http.MethodPost)
+	r.HandleFunc("/upload", upload).Methods(http.MethodPost)
 	fr := r.NewRoute().Subrouter()
-	fr.Use(LogGetFiles(logger, "get on "))
+	fr.Use(LogGetFilesMiddleware(logger, "get on "))
 	fr.HandleFunc("/get-files", getMultipleFiles).Methods(http.MethodPost)
 	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./server/http-server/public/"))))
 	printNetworks(":" + PORT)
