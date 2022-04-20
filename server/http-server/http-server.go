@@ -125,10 +125,11 @@ func respondSuccess(w http.ResponseWriter) {
 func upload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	if err := r.ParseMultipartForm(0); err != nil {
-		fmt.Println(err.Error())
+		respondErrMsg(err.Error(), w)
+		return
 	}
 
-	toSavePath := r.FormValue("path")
+	toSavePath := r.Header.Get("path")
 
 	if toSavePath == "" {
 		respondErrMsg("no path provided", w)
@@ -196,10 +197,14 @@ func verifyPath(c config.ConfigHandler) func(http.Handler) http.Handler {
 				Path string `json:"path"`
 			}
 
-			err = json.Unmarshal(body, &p)
-			if err != nil || p.Path == "" {
-				respondErrMsg(err.Error(), w)
-				return
+			if path := r.Header.Get("path"); path != "" {
+				p.Path = path
+			} else {
+				err = json.Unmarshal(body, &p)
+				if err != nil {
+					respondErrMsg(err.Error(), w)
+					return
+				}
 			}
 			if c.IsRestricted(p.Path) {
 				respondErrMsg("err: Permission denied.", w)

@@ -25,21 +25,25 @@ const vueApp = new Vue({
     loading: false,
     isSelectMode: false,
     selected: new Set(),
+    displayUploadProgressBar: false
   },
   methods: {
     async upload(files) {
       const formData = new FormData()
       for(const f of files)
         formData.append(f.name, f)
-      formData.append("path", this.curDir)
-
-      const res = await fetch("/upload", {
-        method: "POST",
-        body: formData
+      this.displayUploadProgressBar = true;
+      const res = await axios.post("/upload", formData, {
+        headers: { "path": this.curDir + "/" },
+        onUploadProgress: progressEvent => {
+          let percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          this.$refs.uploadProgressBar.style.left = percentCompleted + "%";
+        }
       })
-      const data = await res.json()
+      const data = res.data
       if(!data?.err)
         this.getFilesFromServer()
+      this.displayUploadProgressBar = false;
     },
     filesChange(e) {
       this.upload([...e.target.files])
@@ -58,24 +62,21 @@ const vueApp = new Vue({
       abortCtlr.isActive = true;
 
       try {
-        const res = await fetch("/ls", {
+        const res = await axios.post("/ls", { path: this.curDir === "" ? "" : this.curDir + "/" }, {
           headers: { "Content-Type": "text/json" },
-          method: "POST",
-          body: JSON.stringify({ path: this.curDir === "" ? "" : this.curDir + "/" }),
           signal: abortCtlr.controller.signal
         })
-        const data = await res.json()
-        
+        const data = res.data
         if(data && data.err) {
           this.errMsg = data.msg
-        } else if(res.ok) {
+        } else if(res.status === 200) {
           this.files = (data.files === null) ? [] : data.files
         } else this.errMsg = "something went wrong."
         abortCtlr.controller = null;
         abortCtlr.isActive = false;
         this.loading = false
       } catch(err) {
-        console.log(err)
+        this.errMsg = "something went wrong";
       }
     },
     async cd(dirName) {
@@ -95,26 +96,23 @@ const vueApp = new Vue({
     },
     async getInitDirFromServer() {
       try {
-        const res = await fetch("/init-dir", { method: "GET", headers: { "Content-Type": "text/json" } })
-        const data = await res.json()
-        if(data.err && data.msg) {
-          this.errMsg = data.msg
+        const res = await axios.get("/init-dir", {})
+        if(res.data.err && res.data.msg) {
+          this.errMsg = res.data.msg
           return
         }
-        this.curDir = data.initDir
+        this.curDir = res.data.initDir
       } catch(err) {
         console.log(err)
       }
     },
     async dirChange() {
-      const res = await fetch("/path-exists", {
-        method: "POST",
+      const res = await axios.post("/path-exists", { path: this.curDir }, {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ path: this.curDir })
       })
-      const data = await res.json()
+      const data = await res.data;
       
       if(data && data.err)
         this.errMsg = data.msg

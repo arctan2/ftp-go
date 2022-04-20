@@ -22,7 +22,7 @@ func main() {
 		addr string
 	)
 
-	flag.BoolVar(&isHttpMode, "http", true, "run http server")
+	flag.BoolVar(&isHttpMode, "http", false, "run http server")
 
 	flag.BoolVar(&isServerMode, "s", false, "run as server")
 	flag.BoolVar(&isServerMode, "server", false, "run as server")

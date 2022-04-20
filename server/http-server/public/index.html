@@ -6,32 +6,41 @@
   <link rel="stylesheet" href="style.css">
   <title>hehe boi</title>
   <script src="vue.min.js" defer></script>
+  <script src="axios.min.js" defer></script>
   <script src="script.js" defer></script>
 </head>
 <body>
   <div id="app">
     <div class="top-bar">
       <div class="nav-bar">
-        <div v-if="!isSelectMode">
+        <section v-if="!isSelectMode && !displayUploadProgressBar" class="nav-bar-section">
           <div @click="cd('..')" class="back-btn"></div>
           <div @click="getFilesFromServer()" class="refresh-btn">
             <img src="./refresh.png" alt="refresh">
           </div>
           <div @click="resetData" class="reset-data">reset</div>
           <div @click="isSelectMode = true" style="color: rgb(249, 255, 89);">select</div>
-          <label v-if="!loading && (files.length !== 0) && (errMsg === '')" class="file-upload" style="color: rgb(0, 102, 255);">
+          <label 
+            v-if="!loading && ((errMsg === '') || (errMsg === 'this directory is empty.'))" 
+            class="file-upload" style="color: rgb(0, 102, 255);">
             <input type="file" multiple @change="filesChange" />
             upload
           </label>
-        </div>
-        <div v-else>
+        </section>
+        <section v-else-if="displayUploadProgressBar" class="nav-bar-section uploading-section">
+          <div>uploading...</div>
+          <div class="progress-bar-container">
+            <div class="progress-bar" ref="uploadProgressBar"></div>
+          </div>
+        </section>
+        <section v-else class="nav-bar-section">
           <div>selected ({{selected.size}})</div>
           <div @click="() => {
             this.isSelectMode = false
             this.selected = new Set()
           }" class="cancel" style="color: rgb(255, 69, 69);">cancel</div>
           <div @click="done()" style="color: rgb(0, 255, 102);">done</div>
-        </div>
+        </section>
       </div>
       <form @submit.prevent="dirChange" autocomplete="off">
         <input id="cur-working-dir" autocomplete="off" v-model="curDir" :disabled="isSelectMode" />
