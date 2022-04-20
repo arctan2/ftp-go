@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 func ClearScreen() {
@@ -21,4 +22,16 @@ func IsPathExists(path string) bool {
 		return false
 	}
 	return true
+}
+
+func ToAbsToSlash(path string) (string, error) {
+	path, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	path = filepath.ToSlash(path)
+	if !IsPathExists(path) {
+		return "", errors.New("initDir: path " + path + " doesn't exist.")
+	}
+	return path, err
 }

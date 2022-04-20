@@ -61,7 +61,7 @@ const vueApp = new Vue({
         const res = await fetch("/ls", {
           headers: { "Content-Type": "text/json" },
           method: "POST",
-          body: JSON.stringify({ path: this.curDir + "/" }),
+          body: JSON.stringify({ path: this.curDir === "" ? "" : this.curDir + "/" }),
           signal: abortCtlr.controller.signal
         })
         const data = await res.json()
@@ -93,11 +93,17 @@ const vueApp = new Vue({
         await this.getFilesFromServer()
       }
     },
-    async getDirFromServer() {
-      const res = await fetch("/pwd", { method: "GET", headers: { "Content-Type": "text/json" } })
-      const data = await res.text()
-      if(res.ok) {
-        this.curDir = data
+    async getInitDirFromServer() {
+      try {
+        const res = await fetch("/init-dir", { method: "GET", headers: { "Content-Type": "text/json" } })
+        const data = await res.json()
+        if(data.err && data.msg) {
+          this.errMsg = data.msg
+          return
+        }
+        this.curDir = data.initDir
+      } catch(err) {
+        console.log(err)
       }
     },
     async dirChange() {
@@ -118,7 +124,7 @@ const vueApp = new Vue({
         await this.getFilesFromServer()
     },
     async resetData() {
-      await this.getDirFromServer()
+      await this.getInitDirFromServer()
       this.getFilesFromServer()
     },
     handleFileClick(fName, isDir) {
@@ -137,8 +143,8 @@ const vueApp = new Vue({
     }
   },
   async mounted() {
-    await this.getDirFromServer()
-    await this.getFilesFromServer(this.curDir)
+    await this.getInitDirFromServer()
+    await this.getFilesFromServer()
     if(this.curDir !== "") {
       if(this.curDir[0] === "/") this.dirType = "unix"
       else this.dirType = "windows"

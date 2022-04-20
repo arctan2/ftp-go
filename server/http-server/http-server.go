@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"ftp/common"
+	"ftp/config"
 	serverUtils "ftp/server/server-utils"
 	"io"
 	"io/ioutil"
@@ -22,10 +23,14 @@ type ResponseStruct struct {
 	Msg string `json:"msg"`
 }
 
-func curWorkingDir(w http.ResponseWriter, r *http.Request) {
-	if dirPath, err := serverUtils.GetAbsPath("./"); err == nil {
-		w.Write([]byte(filepath.ToSlash(dirPath)))
-	}
+func initDir(c config.ConfigHandler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var p struct {
+			InitDir string `json:"initDir"`
+		}
+		p.InitDir = c.GetInitDir()
+		json.NewEncoder(w).Encode(p)
+	})
 }
 
 func ls(w http.ResponseWriter, r *http.Request) {
@@ -40,6 +45,8 @@ func ls(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		respondErrMsg(err.Error(), w)
+	} else if !common.IsPathExists(path.Path) {
+		respondErrMsg("no path provided", w)
 	} else {
 		var res struct {
 			Files []common.FileStruct `json:"files"`
@@ -148,24 +155,69 @@ func upload(w http.ResponseWriter, r *http.Request) {
 	respondSuccess(w)
 }
 
-func LogGetFilesMiddleware(logger common.Logger, logDescr string) func(http.Handler) http.Handler {
+func remove(s []string, i int) []string {
+	s[i] = s[len(s)-1]
+	return s[:len(s)-1]
+}
+
+func getFilesMiddleware(c config.ConfigHandler, logger common.Logger, logDescr string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, _ := ioutil.ReadAll(r.Body)
 			r.Body.Close()
-			r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
-			next.ServeHTTP(w, r)
-
 			var paths []string
 			if json.Unmarshal(body, &paths) == nil {
+				for i, p := range paths {
+					p, _ = common.ToAbsToSlash(p)
+					if c.IsRestricted(p) {
+						paths = remove(paths, i)
+					}
+				}
 				b, _ := json.MarshalIndent(paths, "", "\t")
 				logger.Log(logDescr, time.Now(), string(b))
+				body, _ = json.Marshal(paths)
+			}
+			r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func verifyPath(c config.ConfigHandler) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				respondErrMsg(err.Error(), w)
+				return
+			}
+			r.Body.Close()
+			var p struct {
+				Path string `json:"path"`
+			}
+
+			err = json.Unmarshal(body, &p)
+			if err != nil || p.Path == "" {
+				respondErrMsg(err.Error(), w)
+				return
+			}
+			if c.IsRestricted(p.Path) {
+				respondErrMsg("err: Permission denied.", w)
+			} else {
+				r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+				next.ServeHTTP(w, r)
 			}
 		})
 	}
 }
 
 func StartHttpServer(PORT string) {
+	c, err := config.ParseConfigFile("ftp-config.json")
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
 	curDate := time.Now().Local().Format("01-02-2006")
 	logger, err := common.NewLoggerWithDirAndFileName("./logs/http", curDate+".log")
 
@@ -173,14 +225,18 @@ func StartHttpServer(PORT string) {
 		log.Fatal(err.Error())
 	}
 	r := mux.NewRouter()
+	r.Handle("/init-dir", initDir(c))
 
-	r.HandleFunc("/pwd", curWorkingDir)
-	r.HandleFunc("/ls", ls).Methods(http.MethodPost)
-	r.HandleFunc("/path-exists", pathExists).Methods(http.MethodPost)
-	r.HandleFunc("/upload", upload).Methods(http.MethodPost)
+	m := r.NewRoute().Subrouter()
+	m.Use(verifyPath(c))
+	m.HandleFunc("/ls", ls).Methods(http.MethodPost)
+	m.HandleFunc("/path-exists", pathExists).Methods(http.MethodPost)
+	m.HandleFunc("/upload", upload).Methods(http.MethodPost)
+
 	fr := r.NewRoute().Subrouter()
-	fr.Use(LogGetFilesMiddleware(logger, "get on "))
+	fr.Use(getFilesMiddleware(c, logger, "get on "))
 	fr.HandleFunc("/get-files", getMultipleFiles).Methods(http.MethodPost)
+
 	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./server/http-server/public/"))))
 	printNetworks(":" + PORT)
 
