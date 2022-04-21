@@ -81,30 +81,6 @@ func pathExists(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getMultipleFiles(w http.ResponseWriter, r *http.Request) {
-	body, _ := ioutil.ReadAll(r.Body)
-
-	var paths []string
-
-	err := json.Unmarshal(body, &paths)
-
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-
-	tempDir, _ := os.MkdirTemp("", "ftp-go-http")
-	defer os.RemoveAll(tempDir)
-	fileName := "download"
-	zipPath := filepath.Join(tempDir, fileName+".zip")
-
-	if err := common.ZipSource(paths, zipPath, nil); err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-	http.ServeFile(w, r, zipPath)
-}
-
 func printNetworks(port string) {
 	fmt.Println("running on:")
 	fmt.Println("    http://localhost" + port)
@@ -122,38 +98,46 @@ func respondSuccess(w http.ResponseWriter) {
 	json.NewEncoder(w).Encode(ResponseStruct{Err: false, Msg: "success"})
 }
 
-func upload(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "application/json")
-	if err := r.ParseMultipartForm(0); err != nil {
-		respondErrMsg(err.Error(), w)
-		return
-	}
-
-	toSavePath := r.Header.Get("path")
-
-	if toSavePath == "" {
-		respondErrMsg("no path provided", w)
-	}
-
-	for k := range r.MultipartForm.File {
-		f, h, err := r.FormFile(k)
-		if err != nil {
-			continue
-		}
-		p := filepath.Join(toSavePath, h.Filename)
-		if common.IsPathExists(p) {
-			continue
+func uploadWithLog(c config.ConfigHandler, logger common.Logger) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "application/json")
+		if err := r.ParseMultipartForm(0); err != nil {
+			respondErrMsg(err.Error(), w)
+			return
 		}
 
-		downloadFile, err := os.Create(p)
-		if err != nil {
-			continue
+		toSavePath := r.Header.Get("path")
+
+		if toSavePath == "" {
+			respondErrMsg("no path provided", w)
 		}
-		io.Copy(downloadFile, f)
-		downloadFile.Close()
-		f.Close()
+
+		var uploadedPaths []string
+
+		for k := range r.MultipartForm.File {
+			f, h, err := r.FormFile(k)
+			if err != nil {
+				continue
+			}
+			p := filepath.Join(toSavePath, h.Filename)
+			if common.IsPathExists(p) {
+				continue
+			}
+			p = filepath.ToSlash(p)
+			uploadedPaths = append(uploadedPaths, p)
+
+			downloadFile, err := os.Create(p)
+			if err != nil {
+				continue
+			}
+			io.Copy(downloadFile, f)
+			downloadFile.Close()
+			f.Close()
+		}
+		js, _ := json.MarshalIndent(uploadedPaths, "", "\t")
+		logger.Log("upload on", time.Now(), string(js))
+		respondSuccess(w)
 	}
-	respondSuccess(w)
 }
 
 func remove(s []string, i int) []string {
@@ -161,26 +145,32 @@ func remove(s []string, i int) []string {
 	return s[:len(s)-1]
 }
 
-func getFilesMiddleware(c config.ConfigHandler, logger common.Logger, logDescr string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			body, _ := ioutil.ReadAll(r.Body)
-			r.Body.Close()
-			var paths []string
-			if json.Unmarshal(body, &paths) == nil {
-				for i, p := range paths {
-					p, _ = common.ToAbsToSlash(p)
-					if c.IsRestricted(p) {
-						paths = remove(paths, i)
-					}
+func getMultipleFilesWithLog(c config.ConfigHandler, logger common.Logger) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		body, _ := ioutil.ReadAll(r.Body)
+		var paths []string
+		if json.Unmarshal(body, &paths) == nil {
+			for i, p := range paths {
+				p, _ = common.ToAbsToSlash(p)
+				if c.IsRestricted(p) {
+					paths = remove(paths, i)
 				}
-				b, _ := json.MarshalIndent(paths, "", "\t")
-				logger.Log(logDescr, time.Now(), string(b))
-				body, _ = json.Marshal(paths)
 			}
-			r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
-			next.ServeHTTP(w, r)
-		})
+			b, _ := json.MarshalIndent(paths, "", "\t")
+			logger.Log("get on", time.Now(), string(b))
+
+			tempDir, _ := os.MkdirTemp("", "ftp-go-http")
+			defer os.RemoveAll(tempDir)
+			fileName := "download"
+			zipPath := filepath.Join(tempDir, fileName+".zip")
+
+			if err := common.ZipSource(paths, zipPath, nil); err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+			http.ServeFile(w, r, zipPath)
+		}
+		respondErrMsg("something went wrong", w)
 	}
 }
 
@@ -231,16 +221,13 @@ func StartHttpServer(PORT string) {
 	}
 	r := mux.NewRouter()
 	r.Handle("/init-dir", initDir(c))
+	r.HandleFunc("/get-files", getMultipleFilesWithLog(c, logger)).Methods(http.MethodPost)
 
 	m := r.NewRoute().Subrouter()
 	m.Use(verifyPath(c))
 	m.HandleFunc("/ls", ls).Methods(http.MethodPost)
 	m.HandleFunc("/path-exists", pathExists).Methods(http.MethodPost)
-	m.HandleFunc("/upload", upload).Methods(http.MethodPost)
-
-	fr := r.NewRoute().Subrouter()
-	fr.Use(getFilesMiddleware(c, logger, "get on "))
-	fr.HandleFunc("/get-files", getMultipleFiles).Methods(http.MethodPost)
+	m.HandleFunc("/upload", uploadWithLog(c, logger)).Methods(http.MethodPost)
 
 	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./server/http-server/public/"))))
 	printNetworks(":" + PORT)
