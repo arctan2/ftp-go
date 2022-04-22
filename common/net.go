@@ -2,9 +2,9 @@ package common
 
 import (
 	"encoding/gob"
+	"fmt"
 	"io"
 	"net"
-	"fmt"
 )
 
 type GobHandler struct {
@@ -13,7 +13,7 @@ type GobHandler struct {
 }
 
 type Schema interface {
-	[]FileStruct | FileStruct | DirName | string | bool | Res | ZipProgress
+	[]FileStruct | FileStruct | DirName | string | []string | bool | Res | ZipProgress
 }
 
 var (
@@ -21,7 +21,7 @@ var (
 )
 
 func (r Res) Error() string {
-	return r.Data
+	return r.Msg
 }
 
 func GetIPv4Str() string {
@@ -54,6 +54,32 @@ func (h *GobHandler) Encode(i interface{}) error {
 
 func (h *GobHandler) Decode(data interface{}) error {
 	return h.dec.Decode(data)
+}
+
+func (h *GobHandler) EncodeSuccess(data interface{}) error {
+	if err := h.Encode(Res{Err: false, Msg: "success"}); err != nil {
+		return err
+	}
+	return h.Encode(data)
+}
+func (h *GobHandler) EncodeErr(msg string) error {
+	if err := h.Encode(Res{Err: true, Msg: msg}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeWithRes[T Schema](h *GobHandler) (T, error) {
+	var data T
+	var res Res
+	if err := h.Decode(&res); err != nil {
+		return data, err
+	}
+	if res.Err {
+		return data, res
+	}
+	err := h.Decode(&data)
+	return data, err
 }
 
 func Decode[T Schema](h *GobHandler) (T, error) {

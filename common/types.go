@@ -9,8 +9,8 @@ type FileStruct struct {
 type DirName string
 
 type Res struct {
-	Err  bool
-	Data string
+	Err bool
+	Msg string
 }
 
 type ZipProgress struct {

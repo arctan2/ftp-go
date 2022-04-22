@@ -12,10 +12,11 @@ import (
 	"time"
 
 	"ftp/common"
+	"ftp/config"
 	serverUtils "ftp/server/server-utils"
 )
 
-func handleConn(conn net.Conn, logger common.Logger) {
+func handleConn(conn net.Conn, logger common.Logger, c config.ConfigHandler) {
 	defer conn.Close()
 
 	reader := bufio.NewReader(conn)
@@ -23,76 +24,90 @@ func handleConn(conn net.Conn, logger common.Logger) {
 
 	switch cmd, _ := reader.ReadString('\n'); strings.TrimSpace(cmd) {
 	case "pwd":
-		if dirPath, err := serverUtils.GetAbsPath("./"); err == nil {
-			gh.Encode(dirPath)
+		if dirPath, err := serverUtils.GetAbsPath(c.GetInitDir()); err == nil {
+			gh.EncodeSuccess(dirPath)
+		} else {
+			gh.EncodeErr(err.Error())
 		}
 	case "ls":
 		dirName, err := common.Decode[string](gh)
 
 		if err != nil {
-			gh.Encode(err.Error())
+			gh.EncodeErr(err.Error())
+			return
+		}
+
+		if c.IsRestricted(dirName) {
+			gh.EncodeErr("permission denied.")
 			return
 		}
 
 		fileList, err := serverUtils.GetFileList(dirName)
 		if err != nil {
-			gh.Encode(err.Error())
+			gh.EncodeErr(err.Error())
 			return
 		}
-		gh.Encode(fileList)
+		gh.EncodeSuccess(fileList)
 	case "cd":
 		cdToDir, err := common.Decode[string](gh)
 		if err != nil {
-			fmt.Println(err.Error())
+			gh.EncodeErr(err.Error())
 			break
 		}
 
 		if fStat, err := os.Stat(cdToDir); err != nil {
 			if os.IsNotExist(err) {
-				gh.Encode(common.Res{Err: true, Data: "The system cannot find the file specified."})
+				gh.EncodeErr("The system cannot find the file specified.")
 			} else {
-				gh.Encode(common.Res{Err: true, Data: err.Error()})
+				gh.EncodeErr(err.Error())
 			}
 			break
 		} else {
 			if !fStat.IsDir() {
-				gh.Encode(common.Res{Err: true, Data: cdToDir + " is not a directory."})
+				gh.EncodeErr(" is not a directory.")
 				break
 			}
 		}
 		absPath, err := filepath.Abs(cdToDir)
-		gh.Encode(common.Res{Err: false, Data: filepath.ToSlash(absPath)})
+		gh.EncodeSuccess(common.Res{Err: false, Msg: filepath.ToSlash(absPath)})
 	case "get":
-		filePath, err := common.Decode[string](gh)
+		filePaths, err := common.Decode[[]string](gh)
 		if err != nil {
 			fmt.Println(err.Error())
 			return
 		}
 
-		if _, err := os.Stat(filePath); err != nil {
-			break
-		} else {
-			tmpDir, err := os.MkdirTemp("", "ftp-go-server")
-			defer os.RemoveAll(tmpDir)
-			fileName := serverUtils.GetFileName(filePath)
-			zipPath := tmpDir + "/" + fileName + ".zip"
-
-			gh.Encode("zipping...")
-			common.ZipSource([]string{filePath}, zipPath, gh)
-			zfStat, err := os.Stat(zipPath)
-
-			if err != nil {
-				fmt.Println(err.Error())
-				break
+		for _, f := range filePaths {
+			if c.IsRestricted(f) {
+				gh.EncodeErr("get file " + f + ": permission denied.")
+				return
 			}
-
-			gh.Encode(common.FileStruct{Name: zfStat.Name(), IsDir: true, Size: zfStat.Size()})
-
-			b, _ := json.MarshalIndent([]string{filePath}, "", "\t")
-			logger.Log("get on", time.Now(), string(b))
-
-			serverUtils.SendFile(zipPath, conn)
+			if _, err := os.Stat(f); err != nil {
+				gh.EncodeErr("file " + f + " not found")
+				return
+			}
 		}
+
+		tmpDir, err := os.MkdirTemp("", "ftp-go-server")
+		defer os.RemoveAll(tmpDir)
+		fileName := "downloads"
+		zipPath := tmpDir + "/" + fileName + ".zip"
+
+		gh.EncodeSuccess("zipping...")
+		common.ZipSource(filePaths, zipPath, gh)
+		zfStat, err := os.Stat(zipPath)
+
+		if err != nil {
+			gh.EncodeErr(err.Error())
+			break
+		}
+
+		gh.EncodeSuccess(common.FileStruct{Name: zfStat.Name(), IsDir: true, Size: zfStat.Size()})
+
+		b, _ := json.MarshalIndent(filePaths, "", "\t")
+		logger.Log("get on", time.Now(), string(b))
+
+		serverUtils.SendFile(zipPath, conn)
 	}
 }
 
@@ -103,14 +118,22 @@ func StartTcpServer(tcpAddr string) {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+	defer ln.Close()
 
 	log.Println("running on", tcpAddr)
+
+	c, err := config.ParseConfigFile("ftp-config.json")
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			log.Fatal(err.Error())
 		}
-		go handleConn(conn, logger)
+		go handleConn(conn, logger, c)
 	}
 }

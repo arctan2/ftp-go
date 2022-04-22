@@ -101,7 +101,7 @@ func (re *remoteEnvStruct) fetchCurDirFilesFromServer() error {
 		return err
 	}
 
-	files, err := common.Decode[[]common.FileStruct](gh)
+	files, err := common.DecodeWithRes[[]common.FileStruct](gh)
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func (re *remoteEnvStruct) fetchCurDirFromServer() error {
 	defer conn.Close()
 
 	gh := common.NewGobHandler(conn, conn)
-	d, err := common.Decode[string](gh)
+	d, err := common.DecodeWithRes[string](gh)
 
 	if err != nil {
 		return err
@@ -156,16 +156,16 @@ func (re *remoteEnvStruct) cd(cmdArgs []string) error {
 		}
 	}
 
-	exists, err := common.Decode[common.Res](gh)
+	exists, err := common.DecodeWithRes[common.Res](gh)
 	if err != nil {
 		return err
 	}
 
 	if exists.Err {
-		return errors.New(exists.Error())
+		return exists
 	}
 
-	re.curDir = exists.Data
+	re.curDir = exists.Msg
 	return nil
 }
 
@@ -173,7 +173,7 @@ func (re *remoteEnvStruct) ls() error {
 	err := re.fetchCurDirFilesFromServer()
 
 	if err != nil {
-		return errors.New(err.Error() + "\nunable to get files.")
+		return errors.New(err.Error())
 	}
 
 	for _, f := range re.curDirFiles {
@@ -208,12 +208,12 @@ func (re *remoteEnvStruct) get(cmdArgs []string, dest string) {
 
 	gh := common.NewGobHandler(conn, conn)
 
-	if err := gh.Encode(re.curDir + "/" + cmdArgs[1]); err != nil {
+	if err := gh.Encode([]string{re.curDir + "/" + cmdArgs[1]}); err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 
-	isZipping, err := common.Decode[string](gh)
+	isZipping, err := common.DecodeWithRes[string](gh)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -240,7 +240,7 @@ func (re *remoteEnvStruct) get(cmdArgs []string, dest string) {
 	}
 	fmt.Print("\n\n")
 
-	fileDetails, err := common.Decode[common.FileStruct](gh)
+	fileDetails, err := common.DecodeWithRes[common.FileStruct](gh)
 
 	if err != nil {
 		fmt.Println(err.Error())
