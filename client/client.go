@@ -19,6 +19,22 @@ func filterInput(r rune) (rune, bool) {
 	return r, true
 }
 
+func customSplit(str string) (splitted []string) {
+	var isQuoteOpen bool
+	var prevSplit int
+	for i, r := range str {
+		if r == '"' {
+			isQuoteOpen = !isQuoteOpen
+		}
+		if r == ' ' && !isQuoteOpen {
+			splitted = append(splitted, str[prevSplit:i])
+			prevSplit = i + 1
+		}
+	}
+	splitted = append(splitted, str[prevSplit:])
+	return
+}
+
 func handleCmd[T env](curEnv T, eh envHandler) bool {
 	if eh.currentEnvType() == LOCAL {
 		curEnv.curRln().SetPrompt("local> ")
@@ -33,7 +49,7 @@ func handleCmd[T env](curEnv T, eh envHandler) bool {
 	}
 
 	cmdExpr = strings.TrimSpace(cmdExpr)
-	cmdArgs := deleteEmptyStr(strings.Split(cmdExpr, " "))
+	cmdArgs := deleteEmptyStr(customSplit(cmdExpr))
 
 	if len(cmdArgs) == 0 {
 		return false

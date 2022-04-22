@@ -2,13 +2,18 @@ package client
 
 import (
 	"ftp/common"
+	"strings"
 )
 
 type dirFiles []common.FileStruct
 
 func (df *dirFiles) nameSlice() (fileNames []string) {
 	for _, f := range *df {
-		fileNames = append(fileNames, f.Name)
+		if strings.Contains(f.Name, " ") {
+			fileNames = append(fileNames, "\""+f.Name+"\"")
+		} else {
+			fileNames = append(fileNames, f.Name)
+		}
 	}
 	return
 }

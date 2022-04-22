@@ -208,7 +208,13 @@ func (re *remoteEnvStruct) get(cmdArgs []string, dest string) {
 
 	gh := common.NewGobHandler(conn, conn)
 
-	if err := gh.Encode([]string{re.curDir + "/" + cmdArgs[1]}); err != nil {
+	paths := cmdArgs[1:]
+
+	for i := range paths {
+		paths[i] = re.curDir + "/" + paths[i]
+	}
+
+	if err := gh.Encode(paths); err != nil {
 		fmt.Println(err.Error())
 		return
 	}

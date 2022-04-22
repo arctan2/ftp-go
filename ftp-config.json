@@ -1,4 +1,4 @@
 {
-  "initDir": "../empty-folder",
-  "restrictedPaths": ["../ftp-go"]
+  "initDir": "./",
+  "restrictedPaths": []
 }
