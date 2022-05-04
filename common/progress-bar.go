@@ -1,4 +1,4 @@
-package client
+package common
 
 import (
 	"fmt"
@@ -16,20 +16,28 @@ type progressBar struct {
 	placeholder  *string
 }
 
-func (pb *progressBar) updatePercent(percentDone int, filledLength int64) {
+func (pb *progressBar) Max() int64 {
+	return pb.max
+}
+
+func (pb *progressBar) UpdatePercent(percentDone int, filledLength int64) {
 	pb.curPercent = percentDone
 	pb.filledLength = filledLength
-	pb.print()
+	pb.Print()
 }
 
-func (pb *progressBar) update(n int64) {
-	pb.current += n
+func (pb *progressBar) UpdateCurrent(n int64) {
+	pb.current = n
 	pb.curPercent = int(math.Round(float64(100 * pb.current / pb.max)))
 	pb.filledLength = pb.length * pb.current / pb.max
-	pb.print()
+	pb.Print()
 }
 
-func (pb *progressBar) print() {
+func (pb *progressBar) AddCurrent(n int64) {
+	pb.UpdateCurrent(pb.current + n)
+}
+
+func (pb *progressBar) Print() {
 	var bar string
 	for i := 0; i < int(pb.filledLength); i++ {
 		bar += pb.fillChar
@@ -38,7 +46,7 @@ func (pb *progressBar) print() {
 	fmt.Printf("\r%s%s%s %d%%", *(pb.placeholder), bar, emptyBar, pb.curPercent)
 }
 
-func newProgressBar(max, length int64, fillChar, placeholder string) *progressBar {
+func NewProgressBar(max, length int64, fillChar, placeholder string) *progressBar {
 	return &progressBar{
 		max: max, length: length, fillChar: fillChar, placeholder: &placeholder,
 	}

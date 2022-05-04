@@ -49,6 +49,7 @@ func ZipSource(source []string, target string, gh *GobHandler) error {
 			s, _ := DirSize(path)
 			totalSize += s
 		}
+		gh.EncodeSuccess(totalSize)
 	}
 
 	for _, sourcePath := range source {
@@ -90,7 +91,11 @@ func ZipSource(source []string, target string, gh *GobHandler) error {
 			n, err := io.Copy(headerWriter, f)
 			if gh != nil {
 				doneSize += n
-				go gh.Encode(ZipProgress{Max: totalSize, Current: doneSize, IsDone: totalSize == doneSize})
+				if doneSize == totalSize {
+					go gh.Encode(-1)
+				} else {
+					go gh.Encode(n)
+				}
 			}
 			return err
 		}); err != nil {

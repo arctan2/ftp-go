@@ -164,6 +164,8 @@ func getMultipleFilesWithLog(c config.ConfigHandler, logger common.Logger) func(
 			fileName := "download"
 			zipPath := filepath.Join(tempDir, fileName+".zip")
 
+			log.Println("zipping: ", paths)
+
 			if err := common.ZipSource(paths, zipPath, nil); err != nil {
 				fmt.Println(err.Error())
 				return

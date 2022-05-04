@@ -13,7 +13,7 @@ type GobHandler struct {
 }
 
 type Schema interface {
-	[]FileStruct | FileStruct | DirName | string | []string | bool | Res | ZipProgress
+	[]FileStruct | FileStruct | DirName | string | []string | bool | Res | ZipProgress | int64
 }
 
 var (

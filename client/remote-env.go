@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"ftp/common"
 	"io"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -210,7 +209,10 @@ func (re *remoteEnvStruct) get(cmdArgs []string, dest string) {
 
 	paths := cmdArgs[1:]
 
-	for i := range paths {
+	for i, p := range paths {
+		if p[0] == '"' && p[len(paths[i])-1] == '"' {
+			paths[i] = p[1 : len(paths[i])-1]
+		}
 		paths[i] = re.curDir + "/" + paths[i]
 	}
 
@@ -226,20 +228,22 @@ func (re *remoteEnvStruct) get(cmdArgs []string, dest string) {
 	}
 	fmt.Println(isZipping)
 
-	zipPb := newProgressBar(0, 30, "█", "zipping file: ")
+	max, err := common.DecodeWithRes[int64](gh)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	zipPb := common.NewProgressBar(max, 30, "█", "zipping file: ")
 	for {
-		zp, err := common.Decode[common.ZipProgress](gh)
+		zp, err := common.Decode[int64](gh)
 		if err != nil {
 			break
 		}
-		if zp.Max > 0 {
-			zipPb.curPercent = int(math.Round(float64(100 * zp.Current / zp.Max)))
-			zipPb.filledLength = zipPb.length * zp.Current / zp.Max
-			zipPb.print()
-			if zp.IsDone {
-				zipPb.curPercent = 100
-				zipPb.filledLength = zipPb.length
-				zipPb.print()
+		if zipPb.Max() > 0 {
+			zipPb.AddCurrent(zp)
+			if zp == -1 {
+				zipPb.UpdateCurrent(zipPb.Max())
 				break
 			}
 		}
@@ -273,7 +277,7 @@ func (re *remoteEnvStruct) get(cmdArgs []string, dest string) {
 
 	buf := make([]byte, 0, 4096)
 	tmp := make([]byte, 256)
-	pb := newProgressBar(fileDetails.Size, 30, "█", "getting file: ")
+	pb := common.NewProgressBar(fileDetails.Size, 30, "█", "getting file: ")
 	for {
 		n, err := conn.Read(tmp)
 		if err != nil {
@@ -283,7 +287,7 @@ func (re *remoteEnvStruct) get(cmdArgs []string, dest string) {
 			break
 		}
 
-		pb.update(int64(n))
+		pb.AddCurrent(int64(n))
 
 		buf = append(buf, tmp[:n]...)
 	}
