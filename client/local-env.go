@@ -23,12 +23,13 @@ type localEnv interface {
 	setDownloadDir([]string) error
 }
 
-func newLocalEnv(downloadDir, curDir string) localEnv {
+func newLocalEnv(downloadDir, curDir string, netListFunc func(string) []string) localEnv {
 	es := &envStruct{curDirFiles: make(dirFiles, 0), curDir: curDir}
 	dirListFunc := es.curDirFiles.ListFunc()
 
 	completer := readline.NewPrefixCompleter(
 		readline.PcItem("cd", readline.PcItemDynamic(dirListFunc)),
+		readline.PcItem("net switch", readline.PcItemDynamic(netListFunc)),
 	)
 
 	rln, _ := readline.NewEx(&readline.Config{

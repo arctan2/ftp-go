@@ -63,7 +63,7 @@ func handleCmd[T env](curEnv T, eh envHandler) bool {
 	case "pwd":
 		curEnv.pwd()
 	case "net":
-		if err := eh.handleCmd(cmdArgs); err != nil {
+		if err := eh.handleNetCmd(cmdArgs); err != nil {
 			fmt.Println(err.Error())
 		}
 	case "cd":

@@ -31,13 +31,14 @@ type remoteEnv interface {
 	get([]string, string)
 }
 
-func newRemoteEnv(dlr dialer, remoteName string) remoteEnv {
+func newRemoteEnv(dlr dialer, remoteName string, netListFunc func(string) []string) remoteEnv {
 	es := &envStruct{curDirFiles: make(dirFiles, 0)}
 	dirListFunc := es.curDirFiles.ListFunc()
 
 	completer := readline.NewPrefixCompleter(
 		readline.PcItem("cd", readline.PcItemDynamic(dirListFunc)),
 		readline.PcItem("get", readline.PcItemDynamic(dirListFunc)),
+		readline.PcItem("net switch", readline.PcItemDynamic(netListFunc)),
 	)
 
 	rln, _ := readline.NewEx(&readline.Config{

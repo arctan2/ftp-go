@@ -4,7 +4,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"ftp/common"
 	"net"
 	"os"
 	"path/filepath"
@@ -28,7 +27,7 @@ type envHandler interface {
 	currentRemoteName() string
 	localEnv() localEnv
 	setCurRemoteName(string) error
-	handleCmd([]string) error
+	handleNetCmd([]string) error
 	loadRemotesFromGobFile()
 
 	closeAllRemotesRlns()
@@ -41,14 +40,22 @@ const (
 
 func newEnvHandler() envHandler {
 	pwd, _ := os.Getwd()
-	var eh envHandler = &envHandlerStruct{
-		lEnv:       newLocalEnv(filepath.ToSlash(pwd+"/downloads"), pwd),
+	var eh = &envHandlerStruct{
 		remotes:    make(map[string]remoteEnv),
 		curEnvType: LOCAL,
 	}
+	eh.lEnv = newLocalEnv(filepath.ToSlash(pwd+"/downloads"), pwd, eh.netListFunc)
 	eh.loadRemotesFromGobFile()
 	eh.localEnv().refreshCurDirFiles()
 	return eh
+}
+
+func (eh *envHandlerStruct) netListFunc(s string) (remotesList []string) {
+	remotesList = append(remotesList, "local")
+	for r := range eh.remotes {
+		remotesList = append(remotesList, r)
+	}
+	return
 }
 
 func (eh *envHandlerStruct) loadRemotesFromGobFile() {
@@ -64,8 +71,8 @@ func (eh *envHandlerStruct) loadRemotesFromGobFile() {
 		return
 	}
 	for rName, addr := range remotes {
-		rEnv := newRemoteEnv(newDialer(addr), rName)
-		rEnv.initRemote(false)
+		rEnv := newRemoteEnv(newDialer(addr), rName, eh.netListFunc)
+		go rEnv.initRemote(false)
 		eh.addRemoteEnv(rName, rEnv)
 	}
 }
@@ -76,16 +83,7 @@ func (eh *envHandlerStruct) saveRemotesToGobFile() {
 		remoteMap[rName] = rEnv.dialer().addr
 	}
 
-	var (
-		rf  *os.File
-		err error
-	)
-
-	if common.IsPathExists("remotes.gob") {
-		rf, err = os.Open("remotes.gob")
-	} else {
-		rf, err = os.Create("remotes.gob")
-	}
+	rf, err := os.Create("remotes.gob")
 	if err != nil {
 		return
 	}
@@ -157,7 +155,7 @@ func errTooFewArgsFor(arg string, s ...string) error {
 	return errors.New("too few arguements for '" + arg + "'." + concat)
 }
 
-func (eh *envHandlerStruct) handleCmd(cmdArgs []string) error {
+func (eh *envHandlerStruct) handleNetCmd(cmdArgs []string) error {
 	if len(cmdArgs) == 1 {
 		return errors.New(`net usage:
 add     add a new network
@@ -196,14 +194,14 @@ usage: net add <address> <remote-name>
 		if eh.isRemoteNameExist(remoteName) || eh.isRemoteAddrExist(cmdArgs[0]) {
 			return errors.New("remote already exists.")
 		}
-		rEnv := newRemoteEnv(newDialer(cmdArgs[0]), remoteName)
+		rEnv := newRemoteEnv(newDialer(cmdArgs[0]), remoteName, eh.netListFunc)
 		eh.addRemoteEnv(remoteName, rEnv)
 		eh.saveRemotesToGobFile()
 
 		if err = rEnv.initRemote(true); err != nil {
 			return err
 		}
-		eh.handleCmd([]string{"net", "switch", remoteName})
+		eh.handleNetCmd([]string{"net", "switch", remoteName})
 		return nil
 	case "ls":
 		fmt.Print("Remotes ", len(eh.remotes), "\n\n")
@@ -236,10 +234,12 @@ usage: net add <address> <remote-name>
 					eh.curEnvType = LOCAL
 				}
 				delete(eh.remotes, rn)
+				fmt.Println("succesfully removed", rn)
 			} else {
 				return errors.New("unable to find remote '" + rn + "'.")
 			}
 		}
+		eh.saveRemotesToGobFile()
 		return nil
 	case "rename":
 		if len(cmdArgs) != 2 {
@@ -259,6 +259,8 @@ usage: net rename <remote-name> <new-name>
 		if eh.curRemoteName == cmdArgs[0] {
 			eh.setCurRemoteName(cmdArgs[1])
 		}
+		fmt.Println("renamed", cmdArgs[0], "->", cmdArgs[1])
+		eh.saveRemotesToGobFile()
 		return nil
 	}
 	return errors.New("command '" + cmd + "' not found.")
