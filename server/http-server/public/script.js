@@ -15,6 +15,15 @@ function downloadFiles(filePathList) {
     })
 }
 
+function formatBytes(bytes, decimals = 2) {
+  if(bytes === 0) return '0 B';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
 const vueApp = new Vue({
   el: '#app',
   data: { 
@@ -25,10 +34,14 @@ const vueApp = new Vue({
     loading: false,
     isSelectMode: false,
     selected: new Set(),
-    displayUploadProgressBar: false
+    displayUploadProgressBar: false,
+    totalSize: "",
+    curUploadedSize: "",
   },
   methods: {
     async upload(files) {
+      const totalSize = files.reduce((totalSize, { size }) => totalSize + size, 0)
+      this.totalSize = formatBytes(totalSize)
       const formData = new FormData()
       for(const f of files)
         formData.append(f.name, f)
@@ -38,7 +51,8 @@ const vueApp = new Vue({
         onUploadProgress: progressEvent => {
           let percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           this.$refs.uploadProgressBar.style.left = percentCompleted + "%";
-        }
+          this.curUploadedSize = formatBytes(progressEvent.loaded);
+        },
       })
       const data = res.data
       if(!data?.err)
@@ -95,6 +109,7 @@ const vueApp = new Vue({
       }
     },
     async getInitDirFromServer() {
+      if(sessionStorage.curDir) return this.curDir = sessionStorage.curDir;
       try {
         const res = await axios.get("/init-dir", {})
         if(res.data.err && res.data.msg) {
@@ -138,6 +153,11 @@ const vueApp = new Vue({
       downloadFiles([...this.selected].map(fileName => this.curDir + "/" + fileName));
       this.selected.clear();
       this.isSelectMode = false;
+    }
+  },
+  watch: {
+    curDir(cdir) {
+      sessionStorage.curDir = cdir
     }
   },
   async mounted() {

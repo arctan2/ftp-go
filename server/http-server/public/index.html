@@ -32,6 +32,9 @@
           <div class="progress-bar-container">
             <div class="progress-bar" ref="uploadProgressBar"></div>
           </div>
+          <div>
+            <div>{{curUploadedSize}} / {{totalSize}} done</div>
+          </div>
         </section>
         <section v-else class="nav-bar-section">
           <div>selected ({{selected.size}})</div>

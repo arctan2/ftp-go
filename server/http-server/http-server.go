@@ -124,6 +124,7 @@ func uploadWithLog(c config.ConfigHandler, logger common.Logger) func(http.Respo
 				continue
 			}
 			p = filepath.ToSlash(p)
+			log.Printf("upload: %s\n", p)
 			uploadedPaths = append(uploadedPaths, p)
 
 			downloadFile, err := os.Create(p)
